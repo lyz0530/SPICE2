@@ -1,0 +1,180 @@
+\chapter{SPICE2程序}
+\label{App:4}
+SPICE2程序含有大约7500行 FORTRAN IV和COMPASS汇编语言语句。SPICE2是为了在CDC 6400电脑上的使用而编写的，CDC 6400电脑通过University of California，Berkeley的计算机中心访问。该电脑在CALIDOSCOPE操作系统下工作，这个操作系统由计算机中心的工作人员开发。SPICE2的FORTRAN部分用RUNW.2编译器编译，而程序的COMPASS部分用COMPASS 1.1汇编器汇编。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.1.png}
+    \caption{SPICE2的模块框图。}
+    \label{图A4.1}
+\end{figure}
+SPICE2程序含有七大overlay，如图\ref{图A4.1}中所示。root段，SPICE2，是程序的主要控制部分。root在特定的仿真中按顺序调用各种overlay。另外，任何那些不止一个SPICE2 overlay引用的子函数都被包含在root中。任何系统支持的子函数也被包含在root中。
+
+\section{SPICE2 root}
+SPICE2的root段含有程序的主控循环。该主控循环通过图\ref{图A4.2}中给出的流程图说明。程序通过初始化一些程序常数和读取任务标题卡开始。如果在输入文件中遇到结束文件的标识，程序就会终止。否则，READINoverlay就会被调用读取输入文件的剩余部分。READIN程序在遇到.END卡或者输入结束文件标识后会停止读入。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.2.png}
+    \caption{SPICE2的主控流程图。}
+    \label{图A4.2}
+\end{figure}
+
+随着READIN overlay读入输入文件，电路数据结构会被构建。该数据结构含有一套定义了每个电路元件，每个元件模型，和每个输出变量的链表。另外，共用的模块变量被设置以表示要进行的分析类型和已经指定的仿真控制参数。
+
+READIN overlay执行成功后，ERRCHK overlay会被调用来检查电路描述中一些常见的用户错误。另外，ERRCHK overlay也打印出电路列表，器件模型参数列表，和节点列表。
+
+一旦READIN和ERRCHK overlay执行，电路数据结构就随之一致了，而电路分析的准备工作也会开始。SETUP overlay会被调用来构建整数指针结构，在DCTRAN overlay和ACAN overlay都将用到。另外，SETUP overlay产生可执行机器代码来求解线性化DC或者瞬态电路方程。
+
+SETUP overlay成功执行后，电路分析继续。如图\ref{图A4.2}中所示，主分析循环会对每个用户指定的温度重复。每个温度的主分析循环完成后，程序打印任务的任务数据，读入下一个输入deck。
+
+\section{主分析循环}
+主分析循环含有三个部分：DC转移曲线循环，如图\ref{图A4.3}中所示；DC工作点和AC分析循环，如图\ref{图A4.4}中所示；瞬态分析循环，如图\ref{图A4.5}中所示。这些循环依次被执行，一个之后一个。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.3.png}
+    \caption{DC 转移曲线流程图。}
+    \label{图A4.3}
+\end{figure}
+
+DC转移曲线循环，如图\ref{图A4.3}中所示，首先检查以确保要求的是DC转移曲线。标志MODE和MODEDC分别被设置为1和3，而DCTRAN overlay被调用来执行DC转移曲线分析。OVTPVT overlay随后被调用来构建DC转移曲线分析要求的表格列表和线性打印机绘图。
+
+DC工作点和AC分析如图\ref{图A4.4}中所示。首先，循环检查是否要求一个DC工作点。如果不是，DC工作点分析只有要求对非线性电路进行AC分析才会被执行，因为，对于这种情况，线性化器件模型参数对AC分析是必要的预备工作。一旦一个DC工作点是必要的被建立，那么标志MODE和MODEDC会被设置为1，而DCTRAN overlay被调用来计算DC工作点。DCOP overlay随后被调用来打印线性化器件模型参数。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.4.png}
+    \caption{DC工作点和AC分析流程图。}
+    \label{图A4.4}
+\end{figure}
+
+如果被要求，AC分析随后会通过设置MODE为3和调用ACAN overlay被执行。AC分析获得后，与AC分析一起被要求的OVTPVT overlay会被调用以产生表格列表和线性打印机绘制。
+
+最后的分析循环，瞬态分析，如图\ref{图A4.5}中所示。首先，循环检查瞬态分析是否被要求。随后，标志MODE和MODEDC被分别设置为1和2，而DCTRAN overlay会被调用来确定瞬态初始条件。接下来，DCOP overlay被唤醒以打印非线性器件工作点。最后，标志MODE被设置为2，DCTARN overlay被再次调用以确定瞬态分析。OVTPVT overlay随后被调用以产生要求的表格列表和线打印机绘图。另外，在瞬态分析被确定后，OVTPVT overlay会执行时域波形的Fourier分析。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.5.png}
+    \caption{瞬态分析流程图。}
+    \label{图A4.5}
+\end{figure}
+
+\section{内存管理}
+中央内存在SPICE2中是根据仿真需求动态分配的。SPICE2程序的内存地图在图\ref{图A4.6}中所示。SPICE root从用户域长度的起始开始，也就是在低核。七个overlay中的每一个，反过来，从SPICE root结束的地方开始。Blank common从最长 overlay结束的地方开始，并拓展到用户域长度结束的地方，也就是，到高核。程序要求的总的域长度因此是SPICE root，最长overlay，以及blank common的长度的和。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.6.png}
+    \caption{SPICE2的内存地图。}
+    \label{图A4.6}
+\end{figure}
+
+CALIDOSCOPE操作系统容许程序在运行时间变化用户域长度。如果域长度被增加了，那么额外的内存会被附加到高核上。因此，增加域长度等价于增加对程序可行的blank common区域。当用CALIDOSCOPE加载器(CLDR2.3)加载时，SPICE root大概需要16K的octal。最长overlay，DCTRAN，要求6K的octal，而程序从4K octal的blank common长度开始。因此，为了在计算机中心的CDC 6400上加载，SPICE2程序至少需要30K的octal。因为所有可行的中央内存总共才120K octal，所以blank common长度可以在4K octal和74K octal之间变化。换句话说，blank common空间从2048个小数的字变化到30720个小数的字。
+
+SPICE2的数据结构保存在两个数组中，NODPLC和VALUE。这些数组是等价的，因为NODPLC(1)与VALUE(1)享有同样的地址。这些数组都驻留在blank common中。因此，这些数组最大的维度由分配给程序的中央内存的数量控制。
+
+SPICE2使用的所有列表，表，和数组都存在NODPLC和VALUE数组中，通过存储在程序标记的common模块中的指针引用。标记的common模块变量的剩余部分是标记，常数，和仿真控制。
+
+任何数组的指针系统都是简单和直接的。例如，JUNODE数组含有用户节点数字，长度是NUNODS(用户节点的数目)。如果JUNODE被声明在整数数组中，那么JUNODE的成员会被存在JUNODE(1)，JUNODE(2)，$\dots$，JUNODE(NUMODS)。在SPICE2中，变量JUNODE是NODPLC数组的指针，而JUNODE数组的成员被存在NODPLC(JUNODE+1)，NODPLC(JUNODE+2)，$\dots$，NODPLC(JUNODE+NUNODS)中。这种数组划分的方法在整个SPICE2程序中是一致被使用的。
+
+\section{READIN Overlay}
+READIN overlay含有子函数READIN，RUNCON，CARD，和FIND。该overlay读输入文件，检查输入每行的语法，并构建电路的数据结构。定义了电路的数据结构是一套链表。 
+
+每次调用子函数CARD会返回下一行输入的内容，以及任意续行的内容。输入行被分成不同的域，每个域含有一个小数数字(数字域)或者一个字母数字名称(名称域)。卡的第一个域决定了该卡是一张元件卡还是一张控制卡，因为每张控制卡必须以句号(.)打头。如果该卡是一张元件卡或者一张.MODEL卡，那么该卡会通过READIN子函数来处理。如果该卡是一张控制卡，那么该卡会通过RUNCON子函数处理。
+
+FIND子函数处理所有的链表结构事务。无论何时需要一个链表中的一个特定元件(也就是，一颗bead)，FIND子函数就会被调用来定位该bead。如果一颗bead要被加入到该数据结构中，那么FIND子函数会处理链接和内存扩展。
+
+\section{ERRCHK Overlay}
+ERRCHK overlay含有子函数ERRCHK，ELPRNT，MODCHK，和TOPCHK。这些函数会被依次执行。首先，ERRCHK检查每个未定义的元件(例如可能发生的，如果一个互感元件引用的电感没有被定义)。之后，ERRCHK构建用户节点数字的顺序列表，处理电路中的源，处理电路中的耦合电感，以及为稍后在瞬态分析中使用的源断点建立一个列表。
+
+ELPRNT子函数打印电路的总结。MODCHK子函数为未被指定的模型参数分配默认值，打印器件模型参数的总结，执行一些额外的模型参数处理(比如反转串联电阻)，以及，最后，保留任何由非零器件欧姆电阻值产生的内部器件节点。TOPCHK子函数构建节点表，打印节点表，和检查电路中每个节点由至少两个元件连接，以及电路中的每个节点都有一条接地的DC通路。
+
+\section{SETUP Overlay}
+SETUP overlay含有子函数SETUP，MATPTR，RESERV，REORDR，MATLOC，INDEX，CODGEN，和MINS。SETUP函数是该overlay的控制函数。首先，子函数MATPTR被调用来确定哪个节点导纳，矩阵系数是非零的。MATPTR在RESERV子函数的辅助下，循环遍历电路元件，建立非零Y-矩阵项的初始整数指针结构。接下来，该指针结构会被重新排序以最小化填元，而那些存在的填元会被加入到指针中。重排序由REORDR子函数完成。最后，MATLOC子函数计算和存储用来构建Y-矩阵的指针的位置。INDEX函数被MATLOC使用以确定指定Y-矩阵系数的位置。CODGEN和MINS子函数随后产生机器代码来求解DC分析和瞬态分析的电路方程。
+
+\section{DCTRAN Overlay}
+DCTRAN overlay是SPICE2程序中最长和最复杂的overlay。该overlay执行DC工作点分析，瞬态初始条件分析，DC转移曲线分析，和瞬态分析。该overlay含有下面的子函数：DCTRAN，TRUNC，TERR，SORUPD，ITER8，DCDCMP，DCSOL，CODEXC，LOAD，INTGR8，DIODE，BJT，JUNCT，FETLIM，JFET，和MOSFET。
+
+DCTRAN子函数是DCTRAN overlay的控制程序。在这个子程序中有着DCTRAN overlay执行的四种不同分析类型的控制逻辑。DC工作点分析的流程图在图\ref{图A4.7}中给出。瞬态初始时间点求解流程在图\ref{图A4.8}中给出。DC转移曲线分析的流程图在图\ref{图A4.9}中给出。最后，瞬态分析的流程图在图\ref{图A4.10}中给出。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.7.png}
+    \caption{DC工作点流程图。}
+    \label{图A4.7}
+\end{figure}
+
+DC工作点的逻辑并不复杂。如图\ref{图A4.7}中所示，程序首先在时间点0处评估源值。接下来，INITF标志被设置为2，而子函数ITER8被迭代调用来确定DC的解。假使求解收敛，INITF标志会被重置为4，而器件模型函数DIODE，BJT，JFET，和MOSFET，都会被调用来计算器件模型中非线性电容的线性化小信号值。解中的节点电压随后会被打印，而DCTRAN overlay会结束回到root。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.8.png}
+    \caption{瞬态初始条件流程图。}
+    \label{图A4.8}
+\end{figure}
+
+初始瞬态时间点求解的情况比DC工作点的情况要简单。如图\ref{图A4.8}中所示，这两个单点AC分析之间的差别是，对于瞬态初始时间点的情况，线性化电容值没有被计算因为它们在瞬态分析中没有用。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.9.png}
+    \caption{DC转移曲线流程图。}
+    \label{图A4.9}
+\end{figure}
+
+DC转移分析要求多点分析和对输出变量的随后存储。如图\ref{图A4.9}中所示，DC转移曲线分析以与DC工作点分析相同的方式开始。特别地，变源的值被设置为第一个值，其他所有的源值被设置为它们时间点0的值，而ITER8在INITF等于2的时候被调用以获得第一个时间点的解。指定输出变量的值在这个转移点被计算后会被存在中央内存中。随后，变源的值被逐步增加，INITF标志被设置为6。这一过程之后一直持续，直到要求的DC转移曲线的点都被计算完成。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.10.png}
+    \caption{瞬态分析流程图。}
+    \label{图A4.10}
+\end{figure}
+
+瞬态分析循环在图\ref{图A4.10}中所示。如该图所示，瞬态分析和DC转移曲线分析循环是非常相似的。时刻0的解在进入该循环前就已经被计算出来了。因此，该分析中的第一步是对0时刻输出变量的存储。第一个时间点随后通过把标志INITF设置为5调用ITER8来计算。每个之后的时间点通过把标志INITF设置为6来计算。如果该时间点没有收敛，那么时间步长DELTA会被减小8倍，然后重新尝试求解该时间点。如果该时间点收敛，那么子函数TRUNC会被调用来确定与已经指定的截断误差容限一致的新的时间步长。只要新时间步长比当前有效的时间步长大，那么该时间点就会被接受，而输出变量会被存储。如果截断误差太大，也就是得到的时间步长比当前时间步长小，那么该时间点就会被拒掉，重新用更小的时间步长尝试求解。该过程会一直持续到覆盖到用户指定的时间间隔。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/图A4.11.png}
+    \caption{ITER8流程图。}
+    \label{图A4.11}
+\end{figure}
+
+DCTRAN overlay中实现的这四种分析过程全部使用子函数ITER8来决定电路方程的解。ITER8子函数的流程图如图\ref{图A4.11}中所示。求解如果如下开始。首先，子函数LOAD被调用。该子函数对指定的迭代构建线性化的节点方程系统。非线性器件对Y-矩阵的贡献分别在子函数DIODE，BJT，JFET，和MOSFET中计算。NONCON标志是电路中的不收敛非线性数量。该标志在LOAD过程中逐步被增加，因为收敛是作为线性化过程的完整部分。紧接着Y矩阵和激励向量的构建，NONCON上的检查会被执行来确定解是否收敛。如果获得了收敛，那么ITER8子函数就完成了任务。否则，线性化方程的系统会被用来求解下一次迭代的值，而电路方程系统也将再一次被线性化。该过程一直持续直到求解收敛或者迭代次数超过预设的值。
+
+线性化方程的求解由汇编语言函数DCDCMP和DCSOL决定。或者，如果已经生成了可执行机器代码，那么该方程的解就通过执行机器代码来确定；这个过程，反过来，通过调用汇编语言函数CODEXC来执行。
+
+\section{DCOP Overlay}
+目前，DCOP overlay只含有一个子函数，DCOP，并且只有单一的一个任务，那就是打印非线性器件工作点和线性化器件模型参数。最后，该overlay会被拓展去包含DC转移函数分析和DC，小信号敏感度分析，就像在SPICE1程序中包含的那样。
+
+\section{ACAN Overlay}
+SPICE2中的ACAN overlay决定小信号频域分析。该overlay含有四种子函数：ACAN，ACDCMP，ACSOL，和ACLOAD。ACLOAD子程序为每个频率点构建复线性方程系统。这个方程系统随后用汇编语言函数ACDCMP和ACSOL求解。最后，ACAN overlay会被拓展以同时包含噪声分析和失真分析。
+
+\section{OVTPVT Overlay}
+SPICE2程序中最后的一个overlay是OVTPVT overlay。该overlay含有三种子函数：OVTPVT，PLOT，和FOURAN。OVTPVT子函数是该overlay的控制程序。该子函数对输出变量插值以匹配指定的打印间隔，并生成用户\footnote{原文中为“used”，此处翻译为“user”。}指定的表格列表。PLOT子函数在仿真中会被调用以生成线性打印机绘图。最后，FOURAN子函数对瞬态分析执行Fourier分析。
+
+\section{SPICE2中的链表结构}
+SPICE2的电路元件数据被存在一系列链表中。该链表结构是从类似的表格结构中选中的，因为链表结构构建起来比较高效且通过正常伴随表格结构的“holes”不会对中央内存造成浪费。
+
+任何链表bead中的第一项都是指向该链表中下一个bead的指针。如果该bead是链表中的最后一个bead，那么该指针会被设置为0。在SPICE2中，我们决定分开维护NODPLC和VALUE数组，这样的话链表bead中(在NODPLC中)的第二项是一个指针，LOCV，指向VALUE中的bead列表的起始位置。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A4/表A4.1.png}
+    \caption{一个电阻元件的链表bead。}
+    \label{表A4.1}
+\end{figure}
+
+表\ref{表A4.1}中所示的电阻bead结构是链表结构的一个例子。NODPLC数组中的第一项，NPTR，是指向下一个电阻bead的整数指针，如果再没有更多的电阻bead存在，那么该指针会是0。下一项，LOCV，是指向该bead的VALUE项起始位置的指针。第三项和第四项是两个电阻节点编号，而第五项和第六项是通过该电阻引用的两个矩阵指针。第一个VALUE项是电阻的字母数字名称，而第二个VALUE项是电阻值。
+
+所有的SPICE2 bead的结构都与刚刚描述的电阻bead的相似。第一个NODPLC项总是下一个bead的地址，而第二个NODPLC项总是VALUE项的地址。第三个到第m个NODPLC项含有m-2个该bead的整数变量。第一个值项总是该bead的字母数字名称。第二个到第n个VALUE项含有n-1个该bead的实数变量。

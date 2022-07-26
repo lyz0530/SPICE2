@@ -1,0 +1,68 @@
+\documentclass[cn,11pt,chinese]{elegantbook}
+
+\title{SPICE2: A Computer Program to Simulate Semiconductor Circuits}
+
+\author{Laurence W. Nagel}
+\bioinfo{译者}{李春桥}
+\date{2021年7月1日}
+\version{0.01}
+
+
+\extrainfo{Victory won\rq t come to us unless we go to it. --- M. Moore}
+
+\logo{figure/logo.png}
+\cover{figure/cover.png}
+
+% 本文档命令
+\usepackage{array}
+\newcommand{\ccr}[1]{\makecell{{\color{#1}\rule{1cm}{1cm}}}}
+% 修改目录深度
+\setcounter{tocdepth}{2}
+
+\begin{document}
+
+\maketitle
+\frontmatter
+
+\chapter*{特别声明}
+\markboth{Special Statement}{特别声明}
+
+送给我的父母，我的姐姐和姐夫，以及所有关心我的人。
+
+初稿： 2022年4月21日
+
+\vskip 1.5cm
+
+\begin{flushright}
+李春桥\\
+2021.12.12
+\end{flushright}
+
+\include{content/Preface}
+
+\tableofcontents
+%\listofchanges
+
+\mainmatter
+\include{content/Chapter1}
+\include{content/Chapter2}
+\include{content/Chapter3}
+\include{content/Chapter4}
+\include{content/Chapter5}
+\include{content/Chapter6}
+\include{content/Chapter7}
+
+\include{content/Acknowledgments}
+
+%\nocite{*} 
+
+\appendix
+\include{content/Appendix-A1}
+\include{content/Appendix-A2}
+\include{content/Appendix-A3}
+\include{content/Appendix-A4}
+\include{content/Appendix-A5}
+
+\nocite{*}
+\bibliography{reference}
+\end{document}

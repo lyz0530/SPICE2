@@ -1,0 +1,827 @@
+\chapter{数值积分}
+\label{chap:6}
+数值积分方法对在一段特定的时间间隔内(0,T)确定电路的瞬态响应是必要的。电路通过具有如下一般形式的代数差分方程系统表示：
+\begin{equation}
+    F(x,\dot{x},t) = 0
+    \label{eq:6.1}
+\end{equation}
+这里x是未知电路变量向量，$\dot{x}$是x的时间导数，而F是，一般地，一个非线性算子。该电路的瞬态分析把间隔(0,T)分成离散的时间点(0,$t_1$,$t_2$,$\dots$,T)，并在每个时间点上确定(\ref{eq:6.1})的解。初始0时间点由用户指定或者，更经济地，由与之分开的DC分析确定。
+
+给定之前计算出的解($x_n$,$x_{n-1}$,$\dots$)，数值积分算法随后就可以在时间点$t_{n+1}$处确定解$x_{n+1}$。该方法的局部截断误差(LTE)是假定之前的解($x_n$,$x_{n-1}$,$\dots$)是准确的时的解$x_{n+1}$处的误差。LTE，反过来，正比于如下定义的时间步长$h_n$
+\begin{equation}
+    h_n = t_{n+1} - t_n
+    \label{eq:6.2}
+\end{equation}
+
+$x_{n+1}$处的全局误差由时间点$t_{n+1}$处的LTE和之前解的LTE共同决定。数值积分算法的稳定性决定了在之前时间点上的LTE对解$x_{n+1}$处的全局误差的重要性\cite{ref-63,ref-64,ref-65}。
+
+因此，会基于LTE和稳定性对数值积分方法作比较。本章从对显式和隐式的积分方法的介绍开始。LTE的性质和稳定性通过显式前向欧拉算法和隐式后向欧拉方法进行展开。
+
+接下来，电路仿真程序中使用的积分算法会被提出。这些方法包括CANCER\cite{ref-2}和SPICE1\cite{ref-1}中使用的梯形规则算法，固定时间步长Gear方法\cite{ref-66,ref-67}，CIRPAC\cite{ref-41}和SINC\footnote{SINC是由University of California, Berkeley的Electronics Research Laboratory的S. P. Fan开发的非线性瞬态分析程序。SINC程序由TIME程序\cite{ref-19}进化而来。}中使用的Gear-2方法，SCEPTRE\cite{ref-43}的原始版本中使用的Runge-Kutta方法。ECAP2\cite{ref-31,ref-32}和ASTAP\cite{ref-28,ref-29}中使用的Gear方法的变顺序，变时间步长的一种修正。
+
+随后会给出在CANCER和SPICE1中使用的梯形积分的固定时间步长版本的结果。新增的迭代计数时间步长会被详细介绍。这个算法的第一次使用是在TRAC程序\cite{ref-39}中。在TIME\cite{ref-19}和SINC中对该时间步长控制的进一步使用已经证实该算法对很多电路仿真问题都是有用的。
+
+接下来会给出带梯形积分和带Gear-2积分的迭代时间步长控制的对比结果。结果表明没有一种带迭代时间步长控制的算法总能产生精确的结果。该对比，因此，建立了对基于每个时间点上的LTE的时间步长控制的需求。
+
+带梯形积分的LTE时间步长控制的实现随后会详细给出。对不精确的LTE估计和迭代求解误差的缺陷将给出说明，而克服这些问题的实际方法也会被提出。LTE时间步长控制的结果随后会被和迭代计数时间步长控制的结果对比。
+
+最后，给出了Gear方法\cite{ref-66,ref-67}的实现。这些方法首先被单独进行了测试，以期建立较高阶积分方法的可取性。接着，使用了Gear方法的变序积分算法的实现会被提出。该变序，变时间步长的修正结果与梯形方法的LTE实现的结果进行了对比。
+
+\section{显式积分方法}
+显式积分方法从时间点$h_n$处的解$x_{n+1}$的Taylor级数展开直接获得如下：
+\begin{equation}
+    x_{n+1} = x_n + h_n \dot{x}_n + \frac{h^2_n}{2}\frac{d^2x}{dt^2}(\xi)
+    \label{eq:6.3}
+\end{equation}
+这里$x_{n+1} = x(t_{n+1})$，$x_n = x(t_n)$，和$t_n \leq \xi \leq t_{n+1}$。(\ref{eq:6.3})中剩余部分的二阶导数形式是前向欧拉方法的局部截断误差。
+
+如果使用显式积分方法，电路方程必须被格式化为如下正常形式：
+\begin{equation}
+    \dot{x} = f(x,t)
+    \label{eq:6.4}
+\end{equation}
+
+电路方程通过状态变量构建方法可以被构造成这种形式\cite{ref-7}。
+
+时间点$t_{n+1}$处的(\ref{eq:6.4})的解通过结合去除LTE项的(\ref{eq:6.3})和(\ref{eq:6.4})得到
+\begin{equation}
+    x_{n+1} = x_n + h_n \dot{x}_n
+    \label{eq:6.5}
+\end{equation}
+
+\begin{equation}
+    \dot{x}_{n+1} = f(x_{n+1},t_{n+1})
+    \label{eq:6.6}
+\end{equation}
+给定初始解$x_0$，(\ref{eq:6.6})被用来确定导数$\dot{x}_0$。方程(\ref{eq:6.5}-\ref{eq:6.6})随后在每个时间点上求解以确定瞬态响应。
+
+任何显式方法最突出的特征是它的简洁性。每个时间点的解要求对(\ref{eq:6.4})进行一次评估，以及少量的记录。显式方法的简洁性被两个缺点抵消了。第一，状态变量构建必须和显式方法结合使用。如本论文的第\ref{chap:3}章所示，状态变量构建比SPICE中使用的节点分析构建更复杂，也更低效。第二，大多数显式方法的稳定性是出名地糟糕。显式方法的不稳定性，反过来，经常导致时间步长出现不必要的小值和在瞬态分析中计算的时间点数与之相称地增加。
+
+\section{隐式积分方法}
+隐式后向欧拉算法通过在时间点$t_n$同时扩展$x_{n+1}$和$\dot{x}_{n+1}$推得如下：
+\begin{equation}
+    x_{n+1} = x_n + h_n \dot{x}_n + \frac{h^2_n}{2}\frac{d^2x}{dt^2}(\xi)
+    \label{eq:6.7}
+\end{equation}
+
+\begin{equation}
+    \dot{x}_{n+1} = \dot{x}_n + h_n \frac{d^2x}{dt^2}(\xi)
+    \label{eq:6.8}
+\end{equation}
+通过把(\ref{eq:6.8})代入(\ref{eq:6.7})，获得的后向欧拉公式如下：
+\begin{equation}
+    x_{n+1} = x_n + h_n\dot{x}_{n+1} - \frac{h^2_n}{2}\frac{d^2x}{dt^2}(\xi)
+    \label{eq:6.9}
+\end{equation}
+(\ref{eq:6.9})中的第二阶导数项是后向欧拉算法的局部截断误差。
+
+隐式积分算法在每一个时间点在$x_{n+1}$和$\dot{x}_{n+1}$之间产生一种关系。这种关系与电路方程结合为每一个时间点产生一组代数方程系统。例如，如果(\ref{eq:6.9})，不带LTE项，与(\ref{eq:6.4})结合，结果是
+\begin{equation}
+    x_{n+1} = x_n + h_n f(x_{n+1},t_{n+1})
+    \label{eq:6.10}
+\end{equation}
+
+时间点$t_{n+1}$的简化的代数方程系统通过迭代方法求解，就如同电路的DC工作点被确定的过程一样。该积分算法，随后，把N个时间点的瞬态分析任务约减为更简单的N次重复的准DC分析问题。
+
+求解(\ref{eq:6.10})的经典方法使用功能性迭代\cite{ref-37}。解$x_{n+1}$通过显式预测器预测，比如前向欧拉方法，可以产生
+\begin{equation}
+    x^{(0)}_{n+1} = x_n + h_n \dot{x}_n
+    \label{eq:6.11}
+\end{equation}
+该预测随后用隐式纠正器迭代纠正，比如后向欧拉算法，有下面的形式：
+\begin{equation}
+    x^{(k)}_{n+1} = x_n + h_n f(x^{(k-1)}_{n+1},t_{n+1})
+    \label{eq:6.12}
+\end{equation}
+(\ref{eq:6.11})和(\ref{eq:6.12})中的上标表示迭代次数。
+
+预测器-纠正器方法比如(\ref{eq:6.11}-\ref{eq:6.12})暗示着对时间步长施加严重的限制。对后向欧拉纠正器，(\ref{eq:6.12})只要满足如下条件就会收敛\cite{ref-37}
+\begin{equation}
+    h_n < |\frac{\partial f}{\partial x}|^{-1}
+    \label{eq:6.13}
+\end{equation}
+这个来自(\ref{eq:6.13})的限制是使用功能迭代的结果，不是使用隐式隐式积分方法的结果。
+
+幸运地是，还有更有效的迭代方法。Newton-Raphson算法是电路仿真程序中使用最多的方法。Newton-Raphson迭代施加的时间步长限制比(\ref{eq:6.13})的严重程度轻的多。Shichman\cite{ref-41}证明CIRPAC，带预测器-纠正器方法，执行瞬态分析要求的执行时间是CIRPAC带隐式Gear-2方法和Newton-Raphson迭代的13倍。
+
+\section{多项式积分方法}
+大多数积分算法基于前p个解($x_n, \dots,x_{n-p+1}$)近似解$x_{n+1}$。这个一般性积分算法通过下面的方程阐明
+\begin{equation}
+    x_{n+1} = \sum^{p}_{i=1}\alpha_ix_{n-i+1} + \sum^{p}_{i=0}\beta_i\dot{x}_{n-i+1}
+    \label{eq:6.14}
+\end{equation}
+
+如果(\ref{eq:6.14})中的$\beta_0$是0，那么该方法就是显式的，因为$x_{n+1}$是仅基于过去的时间点的解来近似的。隐式方法，另一方面，有非零的$\beta_0$。
+
+如果p是1，那么(\ref{eq:6.14})是一步方法，因为$x_{n+1}$只由解$x_n$决定。多步方法的特征是p的值比1大。
+
+一个第k阶多项式方法确定的系数$\alpha_i$和$\beta_i$会使得如果x是阶数为k或者更小的多项式，那么(\ref{eq:6.14})就是准确的。因为x或者$\dot{x}$的k+1个值对拟合阶数为k的多项式是必要的，所以(\ref{eq:6.14})最大的阶数是2p。如果$2p > k$，那么2p-k个系数会被选择来提高该方法的精度或者稳定性，或者包含一些其他有用的特征。
+
+积分方法不需要被选择，如此的话(\ref{eq:6.14})对多项式就是准确的。Liniger和Willoughby\cite{ref-68}得到的几种方法是基于拟合指数项，而不是多项式。然而，这些方法要求对电路方程特征值的评估。
+
+\section{局部截断误差（LTE）和稳定性}
+积分方法的局部截断误差(LTE)指假定之前的解($x_n,x_{n-1},\dots$)准确，$x_{n+1}$和$t_{n+1}$处的准确解之间的差。如果$x_0$准确，那么$x_1$的误差就只来自在$t_1$处计算解产生的LTE。然而，如果$x_1$被用来确定$x_2$，那么$x_2$的误差很清楚会依赖在$t_2$和$t_1$处招致的LTE。$x_n$处的误差，因此，依赖于所有时间点($t_1,t_2,\dots,t_n$)上的LTE。
+
+如果积分方法是稳定的，那么在特定时间点$t_k$处的LTE对$t_n$处的总误差($n>k$)的贡献会随着n的增加消失。相反，如果算法是不稳定的，那么在时间点$t_k$处的LTE的贡献会没有限制地增加。有些积分方法是稳定的，不管使用的时间步长，而其他方法只对一定范围内的时间步长值稳定。
+
+前向欧拉和后向欧拉方法含有等幅度的LTE项。但是，这两种算法有明显不同的稳定性质。为了阐明这点，考虑下面的简单测试方程
+\begin{equation}
+    \dot{x} = \lambda x
+    \label{eq:6.15}
+\end{equation}
+(\ref{eq:6.15})的准确解是，当然，
+\begin{equation}
+    x = x_0 exp(\lambda t)
+    \label{eq:6.16}
+\end{equation}
+这里$x_0$是时间0处的解。
+
+为了用前向欧拉法求解(\ref{eq:6.15})，(\ref{eq:6.3})，不带LTE项，和(\ref{eq:6.15})结合起来以产生
+\begin{equation}
+    x_{n+1} = x_n[1 + h_n \lambda]
+    \label{eq:6.17}
+\end{equation}
+
+如果时间步长是常数，(\ref{eq:6.17})约减为方程
+\begin{equation}
+    x_n = x_0[1 + h\lambda]^n
+    \label{eq:6.18}
+\end{equation}
+
+相似地，通过不带LTE项的(\ref{eq:6.9})和(\ref{eq:6.15})获得的后向欧拉解产生下面的方程
+\begin{equation}
+    x_{n+1} = x_n[\frac{1}{1-h_n \lambda}]
+    \label{eq:6.19}
+\end{equation}
+
+方程(\ref{eq:6.19})，对于固定步长尺寸，约减为
+\begin{equation}
+    x_n = x_0 [\frac{1}{1-h\lambda}]^n
+    \label{eq:6.20}
+\end{equation}
+
+如果特征值，$\lambda$，是实数和正的，(\ref{eq:6.16})就是不稳定的，因为x随着时间趋向无穷会没有限制地增加。然而，如果$\lambda$是实数和负的，那么(\ref{eq:6.16})就是稳定的，因为随着时间趋向于无穷，x趋向于0。如果准确解是稳定的，那么数值解(\ref{eq:6.18})和(\ref{eq:6.20})也应该是稳定的，因为随着n趋向于无穷，$x_n$应该趋向于0。
+
+对于负实数特征值的情况，前向欧拉解，(\ref{eq:6.18})，只有当时间步长在$0 \leq h \leq -\frac{2}{\lambda}$之间才是稳定的。后向欧拉解，(\ref{eq:6.20})，明显有着更好的稳定性，因为(\ref{eq:6.20})对任何时间步长的值都稳定。
+
+积分方法的选择通常牵扯LTE和稳定性之间的折中。带相对小的LTE项的算法倾向于有糟糕的稳定性特征，然而有好的稳定性的方法倾向于较不精确。对于多项式方法，方法的阶数反映了这种折中。多项式方法\cite{ref-37,ref-64}的LTE由下式给出
+\begin{equation}
+    \varepsilon_{n+1} = Ch^{k+1}_n\frac{d^{k+1}x}{dt^{k+1}}(\xi)
+    \label{eq:6.21}
+\end{equation}
+这里C是常数，依赖特定的积分方法。随着阶数增加，误差$\varepsilon_{n+1}$明显减少。多项式方法的稳定性，在另一方面，随着阶数增加恶化。Dahlquist证明如果该方法要对步长尺寸的任意值都稳定，那么多项式方法的阶数不能超过2\cite{ref-63}。
+
+\section{稳定性区域}
+不同方程系统是以一系列可能为复数的特征值为特征的。积分方法的稳定性因此用复数$h\lambda$平面中的稳定性区域来表征。对于测试方程(\ref{eq:6.15})，$h \lambda$平面的右手边表示暗示着不稳定解的特征值，而$h \lambda$平面的左手边表示暗示着稳定解的特征值\footnote{很多作者考虑测试方程$\dot{x} = -\lambda x$的稳定性。在这种情况下，$h\lambda$平面的右手边表示稳定解，而$h\lambda$平面的左手边表示不稳定解。这两种情况的稳定性区域，当然，是镜像图像}。
+
+对于前向欧拉方法，(\ref{eq:6.18})暗示着稳定性约束
+\begin{equation}
+    |1 + h \lambda| \leq 1
+    \label{eq:6.22}
+\end{equation}
+方程(\ref{eq:6.22})描述了图\ref{图6.1}中说明的稳定性区域。该图中的阴影区域描述了前向欧拉算法的稳定性区域。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/图6.1.png}
+    \caption{前向欧拉算法的稳定性区域。}
+    \label{图6.1}
+\end{figure}
+
+后向欧拉算法的稳定性区域从(\ref{eq:6.20})获得。该区域由下式定义
+\begin{equation}
+    |1 - h\lambda| \geq 1
+    \label{eq:6.23}
+\end{equation}
+
+后向欧拉方法的稳定性区域在图\ref{图6.2}中给出。再一次，图中的阴影区域描述了该算法的稳定性区域。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/图6.2.png}
+    \caption{后向欧拉算法的稳定性区域。}
+    \label{图6.2}
+\end{figure}
+
+Dahliquist提出了A-Stability\cite{ref-63}的定义。如果积分算法是A-Stable，那么该算法的稳定性区域包括$h \lambda$平面的整个左手边。换句话，A-Stable方法无论准确解何时稳定，也不管步长尺寸的值是多少，总能产生稳定的解。
+
+A-Stability的要求排除了很多可供考虑的积分方法。Gear\cite{ref-66,ref-67}识别出实际的差分方程系统可以用stiffy-stable的方法求解，即使该方法不是A-Stable。如果算法随着时间步长趋于无穷是稳定的，那么数值积分算法是stiffy-stable。假设性stiffly-stable算法的稳定性区域如图\ref{图6.3}中所示。该算法对所有有着负实数部分的特征值是不稳定的；然而，随着h趋于无穷，该算法是稳定的。很清楚，任何A-Stable方法也是stiffly-stable。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/图6.3.png}
+    \caption{假设性stiffly-stable算法的稳定性区域。}
+    \label{图6.3}
+\end{figure}
+
+\section{稳定性和刚性的方程系统}
+如果积分方法不是刚性稳定的，那么稳定性考量会在时间步长上施加一个上限，即与电路方程的最小特征值成反比。当电路方程是刚性的，也就是，当比例$|\lambda_{max}|/|\lambda_{min}|$为几个量级，这里$\lambda_{max}$是最大幅度的特征值，而$\lambda_{min}$是最小幅度的特征值，这个时间步长限制就是一个与计算机有关的问题。例如，电路方程的刚性系统来自包含着寄生元件产生的小时间常数和耦合或者旁路元件产生的大时间常数的电路。
+
+稳定性考量要求时间步长h被选择得使得每个特征值的$h\lambda_i$被包含在积分算法的稳定区域中。这个约束，反过来，通常要求如果积分方法不是stiffly-stable的，那么h要和$1/|\lambda_{max}|$同阶。另一方面，电路方程被积的时间间隔(0,T)通常由最小的特征值决定。特别地，T经常和$1/|\lambda_{min}|$同阶。如果积分方法不是stiffly-stable的，那么在瞬态分析中计算的时间点数不能够少于$|\lambda_{max}|/|\lambda_{min}|$\footnote{原文中为mun，这里换未min}，无论要求的误差容限是多少。
+
+如果电路方程不是stiff的，那么比例$|\lambda_{max}|/|\lambda_{min}|$就是10或者100，而稳定性要求施加的时间步长限制没有获得准确解要求的时间步长限制严格。无论如何，很多电子电路产生的刚性电路方程，比例$|\lambda_{max}|/|\lambda_{min}|$也许会是1000或者更大。如果遇到刚性方程，那么stiffly-stable积分方法必须被使用，以确保时间步长被LTE考量而不是稳定性要求限制。
+
+\section{局部截断误差判据}
+局部截断误差可以通过x或者$\dot{x}$处的误差测量。如果使用隐式方法，两种LTE测量都能轻松获得。例如，后向欧拉算法可以通过(\ref{eq:6.9})或者，等价地，下式声明
+\begin{equation}
+    \dot{x}_{n+1}\frac{x_{n+1}-x_n}{h_n} - \frac{h_n}{2}\frac{d^2x}{dt^2}(\xi)
+    \label{eq:6.24}
+\end{equation}
+
+方程(\ref{eq:6.9})基于$x_{n+1}$提供了LTE的估计。这个误差，$\varepsilon_x$，对电容有着电荷的单位，对电感有着磁通量的单位。如果$E_x(t_{n+1})$是时间点$t_{n+1}$处的总误差，那么一个稳定的积分算法满足下面的不等式
+\begin{equation}
+    |E_x(t_{n+1})| \leq \sum^{n+1}_{i=1}|\varepsilon_x(t_i)|
+    \label{eq:6.25}
+\end{equation}
+如果$E_T$是总绝对误差，那么如果在每一个时间点上满足如下关系，(\ref{eq:6.25})就会被满足
+\begin{equation}
+    |E_x(t_{n+1})| \leq \frac{h_n}{T}E_T
+    \label{eq:6.26}
+\end{equation}
+
+如果使用后向欧拉积分，那么(\ref{eq:6.26})产生的时间步长约束如下
+\begin{equation}
+    h_n \leq \frac{2E_T}{T|\frac{d^2x}{dt^2}(\xi)|}
+    \label{eq:6.27}
+\end{equation}
+
+(\ref{eq:6.24})中的LTE估计基于$\dot{x}_{n+1}$表示，对于电容有着电流的单位，对于电感有着电压的单位。如果$\varepsilon_{\dot{x}}$是基于$\dot{x}_{n+1}$的LTE估计，且$E_D$是每个时间点上容许的误差的绝对值，那么LTE约束就通过下面的方程声明
+\begin{equation}
+    |\varepsilon_{\dot{x}}| \leq E_D
+    \label{eq:6.28}
+\end{equation}
+
+如果使用后向欧拉积分，(\ref{eq:6.28})产生如下的时间步长约束
+\begin{equation}
+    h_n \leq \frac{2E_D}{|\frac{d^2x}{dt^2}(\xi)|}
+    \label{eq:6.29}
+\end{equation}
+
+(\ref{eq:6.27})和(\ref{eq:6.29})的对比得到如下结论，如果$E_D = E_T/T$那么这些时间步长约束就是等价的。对于隐式多项式方法，$\varepsilon_x$和$\varepsilon_{\dot{x}}$通过下面的方程联系起来
+\begin{equation}
+    \varepsilon_{\dot{x}} = \beta_0 \varepsilon_x
+    \label{eq:6.30}
+\end{equation}
+这里的$\beta_0$在(\ref{eq:6.14})中定义。对于后向欧拉方法，$\beta_0 = h_n$，所以(\ref{eq:6.27})和(\ref{eq:6.29})等价。对大多数多项式方法，$\beta_0 < h_n$，且如果$E_D = E_T/T$，(\ref{eq:6.29})要求的时间步长比(\ref{eq:6.27})要求的更小。
+
+误差容限$E_D$和$E_T$都是绝对容限。然而，相对容限对程序用户来说更有意义。尽管相对容限可以从(\ref{eq:6.26})或者(\ref{eq:6.28})得到，但是基于$\varepsilon_{\dot{x}}$的相对容限会更相关。给(\ref{eq:6.27})添加相对容限会带来下面的时间步长准则
+\begin{equation}
+    h_n \leq \frac{2[\varepsilon_r |\dot{x}_{n+1}|+\varepsilon_a]}{|\frac{d^2x}{dt^2}(\xi)|}
+    \label{eq:6.31}
+\end{equation}
+在(\ref{eq:6.31})中，$\varepsilon_r$是相对容限，而$\varepsilon_a$是绝对容限。
+
+\section{评估局部截断误差}
+LTE时间步长控制要求在每一个时间点对LTE进行估计。如果使用k阶的多项式方法，该LTE估计等价于评估解向量x的k+1次时间导数。该导数评估通过拟合k+1阶多项式到解($x_{n+1},x_n,\dots,x_{n-k}$)得到。
+
+后向欧拉方法使用二阶多项式形式
+\begin{equation}
+    y(t) = a_0 + a_1(t_{n+1}-t_n) + a_2(t_{n+1}-t)^2
+    \label{eq:6.32}
+\end{equation}
+(\ref{eq:6.32})的二阶导数很明显等于$2a_2$。方程(\ref{eq:6.32})拟合到$x_{n+1}$，$x_n$，和$x_{n-1}$得到
+\begin{equation}
+    \begin{pmatrix}
+x_{n+1} \\
+x_n \\
+x_{n-1}
+\end{pmatrix}=\begin{pmatrix}
+1 &0  &0  \\
+1 &h_n  &h^2_n  \\
+1 &h_n + h_{n-1}  &(h_n+h_{n-1})^2  \\
+\end{pmatrix}\begin{pmatrix}
+a_0 \\
+a_1 \\
+a_2
+\end{pmatrix}
+\label{eq:6.33}
+\end{equation}
+(\ref{eq:6.33})求导的解为
+\begin{equation}
+    \frac{d^2x}{dt^2}(\varepsilon) \widetilde{=} 2a_2 = 2\frac{\frac{x_{n+1}-x_n}{h_n}-\frac{x_n-x_{n_1}}{h_{n-1}}}{(h_n + h_{n-1})}
+    \label{eq:6.34}
+\end{equation}
+方程(\ref{eq:6.34})推广后得到\cite{ref-49}
+\begin{equation}
+    \frac{d^kx}{dt^k}(\varepsilon) \widetilde{=} k!DD_k
+    \label{eq:6.35}
+\end{equation}
+这里$DD_k$是第k次差商。第k次差商通过下面的递归关系定义
+\begin{equation}
+DD_k = \frac{DD_{k-1}(t_{n+1})-DD_{k-1}(t_n)}{\sum^k_{i=1}h_{n+1-i}}
+\label{eq:6.36}
+\end{equation}
+第一次差商由下面的方程定义
+\begin{equation}
+    DD_1 = \frac{x_{n+1}-x_n}{h_n}
+    \label{eq:6.37}
+\end{equation}
+
+LTE，和因此的差商，在每一个时间点上由每一条能量存储支路关系确定。对于k阶积分公式，必须存储k+1个值来评估LTE。(\ref{eq:6.36})的一种直接应用要求解($x_{n+1},x_n,\dots,x_{n-k}$)以及k个时间步长($h_n,h_{n-1},\dots,h_{n+1-k}$)。
+
+如果后向时间点的解以差商向量($DD_1(t_n), DD_2(t_{n-1}, \dots, DD_k(t_{n+1-k}))$)的形式存储，那么(\ref{eq:6.36})可以被更有效地评估。或者，后向信息可以用Nordsieck向量\cite{ref-69}或者后向差分向量\cite{ref-70}的形式存储。所有这些方法要求同样多的中央内存量(每个能量存储元件k个字)。在每个时间点上要求评估LTE的计算代价当然依赖使用的存储后向时间点信息的具体方法。然而，在LTE估计中消耗的计算代价通常只占每个时间点上求解消耗代价的一小部分。
+
+\section{梯形规则算法}
+隐式二阶梯形规则可以直接从Taylor级数展开中得到，使用与后向欧拉算法推导相同的方式就行。特别地，展开$x_{n+1}$和$\dot{x}_{n+1}$产生
+\begin{equation}
+    x_{n+1} = x_n + h_n\dot{x}_n + \frac{h^2_n}{2}\Ddot{x_n} + \frac{h^3_n}{6}\frac{d^3x}{dt^3}(\xi)
+    \label{eq:6.38}
+\end{equation}
+
+\begin{equation}
+    \dot{x}_{n+1} = \dot{x}_n + h_n\Ddot{x}_n + \frac{h^2_n}{2}\frac{d^3x}{dt^3}(\xi)
+    \label{eq:6.39}
+\end{equation}
+为了$\Ddot{x}_n$求解(\ref{eq:6.39})，把结果代入(\ref{eq:6.38})，梯形规则的方程就可以得到如下
+\begin{equation}
+    x_{n+1} = x_n + \frac{h_n}{2}[\dot{x}_{n+1}+\dot{x}_n] - \frac{h^3_n}{12}\frac{d^3x}{dt^3}(\xi)
+    \label{eq:6.40}
+\end{equation}
+(\ref{eq:6.40})中的导数项就是梯形方法的LTE。
+
+如果(\ref{eq:6.40})，没有LTE估计，与(\ref{eq:6.15})结合起来，那么就可以得到下面的递归关系：
+\begin{equation}
+    x_{n+1} = x_n[\frac{1+\frac{h_n\lambda}{2}}{1-\frac{h_n\lambda}{2}}]
+    \label{eq:6.41}
+\end{equation}
+对于固定步长尺寸的情况，简化(\ref{eq:6.41})得到
+\begin{equation}
+    x_n = x_0[\frac{1+\frac{h\lambda}{2}}{1-\frac{h\lambda}{2}}]^n
+    \label{eq:6.42}
+\end{equation}
+如果$\lambda$的实数部分是负的，那么方程(\ref{eq:6.42})随着n趋向于无穷将趋向于0；因此，梯形方法是A-stable的。梯形方法的稳定性区域如图\ref{图6.4}所示。在这个图中，阴影部分表示算法的稳定区域。如该图中所示，如果准确解是稳定的那么梯形算法就是稳定的，而如果准确解是不稳定的那么梯形算法就是不稳定的。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/图6.4.png}
+    \caption{梯形方法的稳定性区域。}
+    \label{图6.4}
+\end{figure}
+
+(\ref{eq:6.42})随着n趋向于无穷趋向于0的方式是梯形算法独有的特征。如果$|h\lambda|>2$，那么(\ref{eq:6.42})的分子就是负的。在这种情况下，$x_n$对偶数的n是正的，对奇数的n是负的。换句话，解会围绕正确解振荡。如果LTE被保持在一个满意的水平，那么该振荡是无害的。
+
+\section{Gear算法}
+Gear\cite{ref-66,ref-67}提出的方法通过下面的方程定义
+\begin{equation}
+    \dot{x}_{n+1} = \sum^k_{i=0}\alpha_ix_{n+1-i}
+    \label{eq:6.43}
+\end{equation}
+方程(\ref{eq:6.43})包含k+1个系数，这些必须要能决定插值系数。这些系数通过使用非确定的系数方法获得。令y为具有如下形式的k阶后向插值多项式
+\begin{equation}
+    y(t) = a_0 + a_1(t_{n+1}-t) + \dots + a_k(t_{n+1}-t)^k
+    \label{eq:6.44}
+\end{equation}
+系数$a_i$通过拟合(\ref{eq:6.44})到k+1个值($x_{n+1},x_n,\dots,x_{n+1-k}$)产生如下方程
+\begin{equation}
+    \begin{bmatrix}
+x_{n+1} \\
+x_n \\
+\vdots \\
+x_{n+1-k}
+\end{bmatrix}=\begin{bmatrix}
+1 &0  &0  &\dots  &0  \\
+1 &h  &h^2  &\dots  &h^k  \\
+\vdots &\vdots  &\vdots  &  &\vdots  \\
+1 & kh & (kh)^2 &\dots  &(kh)^k  \\
+\end{bmatrix}\begin{bmatrix}
+a_0 \\
+a_1 \\
+\vdots \\
+a_k
+\end{bmatrix}
+\label{eq:6.45}
+\end{equation}
+把(\ref{eq:6.45})代入(\ref{eq:6.43})得到如下方程
+\begin{equation}
+\begin{aligned}
+    -\alpha_1 &= \alpha_0[\alpha_0 + \alpha_1h + \dots + \alpha_kh^k] \\
+    &+ \alpha_1[\alpha_0 + \alpha_1(2h) + \dots + \alpha_k(2h)^k] \\
+    &\vdots \\
+    & +\alpha_k[\alpha_0 + \alpha_1(kh) + \dots + \alpha_k(kh)^k]
+    \label{eq:6.46}
+\end{aligned}
+\end{equation}
+
+(\ref{eq:6.46})右手边的系数必须独立地等于(\ref{eq:6.46})左手边的系数。这个限制产生下面的方程系统
+\begin{equation}
+\begin{bmatrix}
+1 &1  &\dots  &1  \\
+h &2h &\dots  &kh  \\
+\vdots &\vdots  &  &\vdots  \\
+h^k & (2h)^k &\dots  &(kh)^k  \\
+\end{bmatrix}\begin{bmatrix}
+\alpha_0 \\
+\alpha_1 \\
+\vdots \\
+\alpha_k
+\end{bmatrix}=\begin{bmatrix}
+0 \\
+-1 \\
+\vdots \\
+0
+\end{bmatrix}
+\label{eq:6.47}
+\end{equation}
+
+(\ref{eq:6.47})对于k从1到6的值的解产生的六种Gear方法在表\ref{表6.1}中给出。Gear的一阶方法就是后向欧拉方法。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.1.png}
+    \caption{固定步长尺寸的Gear方法。}
+    \label{表6.1}
+\end{figure}
+
+从Gear\cite{ref-66}推导得到的这六种方法的稳定性区域在图\ref{图6.5}中展示。只有一阶和二阶Gear方法是稳定的；然而，所有的Gear方法都是刚性稳定的。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/图6.5.png}
+    \caption{Gear方法的稳定性区域。}
+    \label{图6.5}
+\end{figure}
+
+Gear的算法，对于阶数大于1的，是多步方法。与后向欧拉和梯形方法不同，Gear方法基于$\dot{x}_{n+1}$，$x_n$，和k-1个后向解($x_{n-1},\dots,x_{n-k+1}$)产生$x_{n+1}$的解。任何多步算法都意味着额外的记录和存储，因为额外的过去的时间点必须被处理和存储。
+
+多步方法另一个麻烦的地方是他们必须被“启动”。特别地，因为$x_{-1}$未知，所以二阶方法不能用在第一个时间点。通常，k阶多步方法只有k-1个时间点计算完成后才可以被使用。Gear提出对第一个时间点使用一阶方法，对第二个时间点使用二阶方法，以此类推。六个时间点计算完成后，可以使用任意的Gear方法。
+
+三阶到六阶Gear方法的不稳定区域也许会在一些问题中导致不稳定的解。因此，使用Gear方法的通用目的的积分算法必须包含一种顺序控制方法，以确保只有它们产生了稳定的解才能使用高阶方法。
+
+\section{Gear-2方法}
+Shichman\cite{ref-41}第一次报道了在一个电路仿真程序中使用Gear二阶算法。对于固定时间步长，二阶Gear算法在表\ref{表6.1}中给出。因为这个算法是一个多步方法，所以如果在积分中时间步长被变动，那么固定时间步长的结果就不能被使用。相反，该方法必须为变时间步长\cite{ref-41}而被修正：
+\begin{equation}
+    \dot{x}_{n+1} = \frac{2h_n+h_{n-1}}{h_n(h_n+h_{n-1})}x_{n+1} + \frac{h_n+h_{n-1}}{h_nh_{n-1}}x_n + \frac{h_n}{h_{n-1}(h_n+h_{n-1})}x_{n-1}
+    \label{eq:6.48}
+\end{equation}
+
+Gear方法的固定时间步长版本的稳定性区域在图\ref{图6.5}中展示。(\ref{eq:6.48})的稳定性区域还没有被推导出来。因此，有可能(\ref{eq:6.48})对$h_n$和$h_{n-1}$的一些组合不稳定。然而，CIRPAC\cite{ref-41,ref-42}和SINC的实际使用经验表明对于一大类电路仿真问题，Gear-2方法是稳定的。
+
+\section{Runge-Kutta方法}
+经典的Runge-Kutta方法\cite{ref-37,ref-49}基于中间解产生$x_{n+1}$的显式解。例如，四阶Runge-Kutta方法工作的方式如下
+\begin{equation}
+    y_1 = f(x_n, t_n)
+    \label{eq:6.49}
+\end{equation}
+\begin{equation}
+    y_2 = f(x_n + \frac{h_n}{2}y_1, t_n + \frac{h_n}{2})
+    \label{eq:6.50}
+\end{equation}
+\begin{equation}
+    y_3 = f(x_n + \frac{h_n}{2}y_2, t_n + \frac{h_n}{2})
+    \label{eq:6.51}
+\end{equation}
+\begin{equation}
+    y_4 = f(x_n + h_ny_3, t_n+h_n)
+    \label{eq:6.52}
+\end{equation}
+\begin{equation}
+    x_{n+1} = x_n + \frac{1}{6}y_1 + \frac{1}{3}y_2 + \frac{1}{3}y_3 + \frac{1}{6}y_4
+    \label{eq:6.53}
+\end{equation}
+
+中间解($y_1, y_2, y_3, y_4$)只被用来求解最后的解(\ref{eq:6.53})，而在后续的计算中都用不到。
+
+经典的Runge-Kutta方法不是stiffly-stable的，而如果遇到刚性方程系统，这些方法将非常无效。然而，稳定的Runge-Kutta法可以通过Rosenbrock\cite{ref-71}提出的Runge-Kutta法的拓展进行开发。Allen\cite{ref-72}使用Rosenbrock的拓展开发了三阶和四阶稳定的Runge-Kutta方法。Allen四阶拓展的Runge-Kutta方法在CIRCUS2程序\cite{ref-34}中进行了使用。
+
+与所有的显式算法相同，Runge-Kutta方法必须结合State-Variable构建法来使用，因为电路方程必须符合(\ref{eq:6.4})的形式。而且，显式的Runge-Kutta方法含有一个别的显式方法不会遇到的缺点。特别地，Runge-Kutta方法的LTE正比于Jacob $\frac{\partial f}{\partial x}$。评估Runge-Kutta方法的LTE比多项式方法的要更困难，而且使用Runge-Kutta方法的动态变时间步长的算法倾向于使用比要求精度必要的时间步长更小的时间步长。
+
+\section{隐式稳定的Runge-Kutta方法}
+Miller\cite{ref-73,ref-74}提出的对经典Runge-Kutta方法的拓展可产生隐式稳定的三阶和四阶方法。两种Miller方法都比可行的隐式多项式方法有着好得多的误差系数。二阶方法要求一个中间点如下：
+\begin{equation}
+    x^{*}_{n+\frac{1}{3}} = x_n + \frac{h}{3}\dot{x}^{*}_{n+\frac{1}{3}}
+    \label{eq:6.54}
+\end{equation}
+\begin{equation}
+    x_{n+1} = -\frac{5}{4}x_n + \frac{9}{4}x^{*}_{n+\frac{1}{3}} + \frac{h}{4}\dot{x}_{n+1} - \frac{h^3}{24}\frac{d^3x}{dt^3}(\xi)
+    \label{eq:6.55}
+\end{equation}
+(\ref{eq:6.55})中的导数项是二阶Miller算法的LTE。该截断误差比Gear二阶方法的小五倍，是梯形方法的两倍。然而，对中间点的需要暗示着Miller二阶方法在每个时间点上的计算代价是多项式方法的两倍。
+
+Miller的三阶隐式Runge-Kutta算法要求两个中间点如下：
+\begin{equation}
+    x^{*}_{n+1} = x_n + h\dot{x}^{*}_{n+1}
+    \label{eq:6.56}
+\end{equation}
+\begin{equation}
+    x^{*}_{n+\frac{1}{3}} = \frac{13}{12}x_n - \frac{1}{12}x^{*}_{n+1} + \frac{5}{12}h\dot{x}^{*}_{n+\frac{1}{3}}
+    \label{eq:6.57}
+\end{equation}
+\begin{equation}
+    x_{n+1} = -\frac{19}{20}x_n + \frac{36}{20}x^{*}_{n+\frac{1}{3}} + \frac{3}{20}x^{*}_{n+1} + \frac{h}{4}\dot{x}_{n+1} - \frac{h^4}{22}\frac{d^4x}{dt^4}(\xi)
+    \label{eq:6.58}
+\end{equation}
+(\ref{eq:6.58})中的导数项是三阶Miller方法的LTE。该LTE比Gear三阶方法的小三倍。然而，对两个中间点的需要意味着Miller三阶方法的计算代价是多项式方法代价的三倍。
+
+\section{隐式方法的LTE的对比}
+对积分方法的一个简要调查表明隐式算法对以瞬态分析为目的更优。对stiffly-stable积分方法的需要排除了大多数显式算法，除了著名的例外Allen的拓展的Runge-Kutta方法。在评估Allen方法的LTE中增加的难度，以及使用State-Variable构造法的必要，使得Allen的显式方法相比可行的隐式算法缺少吸引力。
+
+特定积分方法的选择由算法的LTE和稳定性决定。后向欧拉方法，梯形规则算法，二阶到六阶Gear方法，以及二阶和三阶Miller方法在表\ref{表6.2}中进行了总结。在这个表中，误差$\varepsilon_x$是x的LTE，而$\varepsilon_{\dot{x}}$是$\dot{x}$的LTE。表\ref{表6.2}中列出的所有方法都是stiffly-stable的，而且只有三阶到六阶Gear方法是不稳定的。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.2.png}
+    \caption{选中的隐式积分算法的LTE项总结。}
+    \label{表6.2}
+\end{figure}
+
+不同积分方法之间最相关的品质因数是在给定LTE容限下瞬态响应要求的时间点数量。不幸的是，该品质因数必须经验地确定，所以因此依赖我们使用的特定的积分算法的实现和特定的测试问题。然而，对不同积分方法的相对品质的洞见可以从对简单的测试方程\ref{eq:6.15}的积分上得到。
+
+因为(\ref{eq:6.15})的准确解已知，所以表\ref{表6.2}中的所有导数可以被准确评估。而且，因为准确解(\ref{eq:6.16})和(\ref{eq:6.16})的所有导数是单调递减的，所以在时间点$t_n$处评估这些导数会对时间点$t_{n+1}$处的LTE产生连续的最坏情况的值。对于后向欧拉评估，结合(\ref{eq:6.16})和两个误差项，例如，产生如下两个方程，
+\begin{equation}
+    \frac{\varepsilon_x(t_{n+1})}{x_n} = \frac{(h_n\lambda)^2}{2}
+    \label{eq:6.59}
+\end{equation}
+\begin{equation}
+    \frac{\varepsilon_{\dot{x}}(t_{n+1})}{\dot{x}_n} = \frac{h_n\lambda}{2}
+    \label{eq:6.60}
+\end{equation}
+方程(\ref{eq:6.59})产生任意一个时间点$t_{n+1}$处的x的最坏情况相对误差，而任意一个时间点$t_{n+1}$处的$\dot{x}$的最坏情况相对误差由(\ref{eq:6.60})决定。
+
+积分算法可以基于$h_n\lambda$的值进行比较，该值在获取时间点$t_{n+1}$处特定的相对精度时需要。这个对于给定精度产生$h_n\lambda$最大值的方法在瞬态分析中要求数量最少的时间点。
+
+表\ref{表6.2}中列出的九种隐式方法的$h_n\lambda$的值对相对精度0.1，0.01，0.001，0.0001，和0.00001在表\ref{表6.3}中给出。在这个表中，$\dot{x}$中的LTE被用来比较。二阶和三阶Miller方法的$h_n\lambda$的值各自被2和3除，因为二阶Miller方法要求的计算代价是多项式方法的两倍，而Miller的三阶方法要求的计算代价是多项式方法的三倍。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.3.png}
+    \caption{选中的隐式积分方法的$h_n\lambda$的理论值。}
+    \label{表6.3}
+\end{figure}
+
+很清楚，高阶Gear算法的使用暗示着时间步长的理论值比梯形方法的大的多。随着误差容限减小，高阶方法时间步长中的差别明显增加。例如，对于0.1的相对误差容限，Gear-6算法产生的时间步长比梯形方法容许的时间步长大22\%。如果误差容限被减到0.001，Gear-6方法的优势将增加到5.7倍，而如果误差容限进一步被减到0.00001，那么Gear-6方法的优势将增加到26.2倍。
+
+Miller的两种Runge-Kutta方法在大多数情况下产生相等的$h_n\lambda$值，都比梯形方法的小。只有当误差容限被减到0.00001时，Miller的三阶算法才容许比梯形方法大的时间步长值。因此，这些Runge-Kutta方法求解中间点要求的额外计算代价不会在容许的时间步长上产生相称的增加。
+
+\section{不带时间步长控制的梯形积分}
+梯形方法是最准确的A-stable多项式方法\cite{ref-63}。而且，该算法简单，对过去的时间点信息量要求最少。出于这些原因，梯形方法在CANCER\cite{ref-2}和SPICE1中进行了使用。
+
+无论是CANCER还是SPICE1都不包含动态变化积分时间步长的方法。相反，总时间间隔(0,T)可以被切分成子区间，每个子区间可以对应特定的不同的时间步长。这一安排清楚地把所有截断误差控制的问题都留给了用户，要获得准确的结果，用户端要求更多的经验。SPICE1程序的广泛使用和接受表明选择合适的时间步长问题不是压倒性的。电路设计人员通常对电路是熟悉的，可以评估主要的时间常数。而且，少量的预先分析后，设计人员可以调整时间步长以产生满意的结果。
+
+作为起点，五个瞬态测试电路和十个标准的基准电路用没有包含时间步长控制的SPICE2版本进行了仿真。这些测试电路在本论文的附录\ref{App:1}部分进行了详细介绍。这些瞬态分析的时间点数，Newton迭代次数，和CPU时间在表\ref{表6.4}的第一列给出。所有这些分析都运行了100个时间点。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.4.png}
+    \caption{无时间步长控制，迭代时间步长控制和带预测与绕过的迭代时间步长控制。}
+    \label{表6.4}
+\end{figure}
+
+从无时间步长控制的结果中得到的一个重要观察是SCHMITT和ASTABLE案例的不收敛。这两个例子都有再生的转换区域，在电路波形上导致了非常快速的转换。除非时间步长在这些再生的区域中被迅速减小，不然Newton迭代序列就不会收敛。
+
+\section{带梯形积分的Iteration-Count时间步长控制}
+瞬态分析中的不收敛问题可以通过如下提升避免。如果发生了不收敛，时间步长会被减小直到时间点处的解收敛。如果时间点处的迭代次数小于一个预设的值，那么时间步长会被增加。然而，时间步长不会被容许超过用户支持的时间步长。用户，因此，仍然必须选择合适的最大时间步长来获得准确的结果。
+
+迭代时间步长控制在下面的情形中能产生最好的结果。如果迭代次数超过十，时间步长会被减小8倍，而如果迭代次数小于五，时间步长会被增加2倍。虽然对一些电路不同准则能产生更好的结果，但上面的实现产生的结果平均来讲需要最少的迭代次数。
+
+瞬态分析中的解误差在解的快速转换区域比较大。这些转换经常是输入源转换的结果，可以通过输入数据预测。为了减少源转换区域中的解误差，时间步长会被减小。下面的方法能对解的精度产生明显的提升。如果特定时间点的时间步长预示着一个超过源断点的$t_{n+1}$的值，那么时间步长会被减小，以使得值$t_{n+1}$与断点一致。断点的解确定后，时间步长被迭代时间步长算法减到用户支持的时间步长的$1/10$，除非时间步长已经小于用户支持的时间步长的$1/10$。
+
+在实现了迭代时间步长控制和源断点识别之后，用SPICE2程序再次进行了十五个瞬态分析。这一系列测试的结果在表\ref{表6.4}的第二列中给出。第一个数字是时间点数，之后是Newton迭代次数，最后是执行时间。
+
+如数据所示，SCHMITT和ASTABLE电路分析中遇到的不收敛问题在添加了迭代时间步长控制后被消除了。然而，迭代时间步长控制需要的时间点数和迭代次数比无时间步长控制的情况要多。特别地，时间点数多了5\%到30\%，而Newton迭代次数多了3\%到30\%。对这些分析中的大多数，计算代价上的增加仅仅来自源断点识别。因为迭代计数使得时间步长被减小的情况只发生在SCHMITT，ASTABLE，和TTLINV电路的分析中。
+
+为了提高瞬态分析的计算效率，两种额外的提高方法，预测和绕过，被加进了SPICE2程序。所加的这两项在本论文的第\ref{chap:5}章进行了详细介绍，但没有一项影响到时间步长控制或者LTE。预测算法为Newton迭代序列产生较好的初始估计，而绕过算法避免了重复计算与之前迭代没有显著变化的非线性方程。
+
+那十五个示例电路再次用加入的这两项提高进行了测试。最后的测试结果在表\ref{表6.4}的第三列中给出。除了RC和SCHMITT电路，这两项提高的加入在Newton迭代次数上产生了2\%到20\%的减少，在执行时间上产生了3\%到25\%的减少。
+
+\section{带Gear-2积分的Iteration-Count时间步长控制}
+因为Gear-2算法的使用已经取得了大量的成功，而这些测例也再次用Gear-2算法进行了测试。这两种算法的结果在表\ref{表6.5}中给出。表\ref{表6.5}中给出的结果包含了源断点识别，预测和绕过。Gear-2算法，就像实现的那样，使用了Backward Euler方法作为启动。该启动步骤将在到达源断点或者遇到不收敛时再次唤醒。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.5.png}
+    \caption{带迭代时间步长控制的梯形和Gear-2方法的对比。}
+    \label{表6.5}
+\end{figure}
+
+表\ref{表6.5}中的数据对比表明如果这些算法结合迭代时间步长控制使用，那么梯形方法和Gear-2方法之间就几乎没有区别。对大多数的电路，Gear-2算法带来更少的迭代。最好情况，Gear-2算法在TTLINV电路和SBDGATE电路中需要的迭代次数少11\%。然而，除了TTLINV和SBDGATE电路，梯形方法在所有的电路上需要的执行时间都更少。迭代次数的差别和执行时间的差别之间的悬殊可归咎为Gear-2算法被实现地比较低效。特别地，(\ref{eq:6.43})中的三个系数在每一次迭代时都要对每一条能量存储支路进行评估，不再是每个时间点只评估这些系数一次。这一额外的负担可以在更好的编程手段下被减小，但无法被消除。
+
+\section{Iteration-Count时间步长控制方法的对比}
+关于这点，梯形积分和Gear-2积分的Iteration-Count时间步长控制实现已经在迭代次数和cpu执行时间上进行了单独比较。这两种方法的数值结果对电路设计人员，当然，也是重要的。本节会给出，对所有的测试电路，这两种方法中没有一种能保证自己产生的结果都在合理的误差界内。为了证明精度问题，给出了CHOKE，ECL，和SCHMITT案例的数值结果。
+
+图\ref{图6.6}中给出了CHOKE电路的节点3处的电压的瞬态波形。图\ref{图6.6}a中的响应是用LTE时间步长控制和梯形积分获得的。图\ref{图6.6}b中的响应是用Iteration-count时间步长控制和梯形积分获得的，而图\ref{图6.6}c中的响应是Gear-2积分和Iteration-count时间步长控制的结果。在该仿真中，特别关注的时间间隔在10ms到13ms之间。在这个时间间隔里，图\ref{图6.6}b中的响应有一段“振铃”，而图\ref{图6.6}c中的响应有一段明显的过冲。对于这个案例，Iteration-count算法产生的结果的精度没有一个在5\%内。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/图6.6.png}
+    \caption{CHOKE电路节点电压3的瞬态响应。}
+    \label{图6.6}
+\end{figure}
+
+下一个案例是ECL电路的Q1的基极电流的响应。该响应在图\ref{图6.7}中展示。图\ref{图6.7}a展示了使用梯形积分和LTE时间步长控制时计算得到的“准确的”响应。图\ref{图6.7}b和\ref{图6.7}c分别展示了梯形积分和Gear-2积分在iteration-count时间步长控制下的响应。对这个案例，图\ref{图6.7}a和\ref{图6.7}b在0.5\%内。然而，图\ref{图6.7}c在2.5ns附近表现出了图\ref{图6.7}a中没有的过冲。换句话说，如果采用了梯形积分，iteration-count时间步长控制得到了准确的结果，但Gear-2积分的结果不准确。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/图6.7.png}
+    \caption{ECL电路中的Q1的基极电流的瞬态响应。}
+    \label{图6.7}
+\end{figure}
+
+最后，考虑SCHMITT电路中节点5处的电压响应。该响应在图\ref{图6.8}中进行了展示。再一次，图\ref{图6.8}a是来自LTE时间步长控制的响应，而图\ref{图6.8}b和\ref{图6.8}c分别是从在iteration-count时间步长控制下的梯形和Gear-2积分处获得的。在这个例子中，图\ref{图6.8}b在响应中含有一段实际响应中没有的“振铃”。图\ref{图6.8}c，另一方面，不包含该“振铃”。对于这个例子，如果采用Gear-2积分，iteration-count时间步长控制会产生满意的结果，但梯形积分的结果是不准确的。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/图6.8.png}
+    \caption{SCHMITT电路节点电压5的瞬态响应。}
+    \label{图6.8}
+\end{figure}
+
+这三个案例论证了以下事实，不管是Gear-2方法还是梯形方法，如果时间步长是基于iteration-count控制的，那么没有一种方法总能产生可接受的结果。因为迭代时间步长控制不控制截断误差，所以特定分析的误差依赖使用的积分方法以及用户指定的时间步长。
+
+\section{带LTE时间步长控制的梯形积分}
+梯形方法的截断误差时间步长的实现是通过添加评估每一个时间点处的LTE的方法和调整时间步长以使得LTE保持在一个合理界限内完成的。这一工作在SPICE2中通过使用相对导数误差估计(\ref{eq:6.31})和评估三阶导数的$DD_3$方法一起构建方程完成
+\begin{equation}
+    h_{n+1} = \sqrt{\frac{\varepsilon_r|\dot{x}_{n+1}|+\varepsilon_a}{DD_3(t_{n+1})}}
+    \label{eq:6.61}
+\end{equation}
+
+SPICE2中最开始使用的梯形积分时间步长算法如下。时间点$t_{n+1}$确定后，$h_{n+1}$用(\ref{eq:6.61})计算。如果$h_{n+1} \leq 0.9h_n$，那么时间点$t_{n+1}$的截断误差被认为是满意的，时间步长$h_{n+1}$会被用来计算时间点$t_{n+2}$。如果，另一方面，$h_{n+1} > 0.9h_n$，那么该时间点的截断误差就太大了，时间点$t_{n+1}$会用$h_n = h_{n+1}$重新计算。
+
+当这个时间步长策略被应用到标定RC电路上时，该算法产生的误差比要求的误差小的多。换句话，这个算法需要太多的时间点和迭代次数来决定满足精度要求的解。这个问题可以归咎为当多项式误差估计，$DD_3$，被应用到指数解上时，是不准确的。
+
+为了论证该不准确，测试方程(\ref{eq:6.15})用$\lambda = -3$和$x_0 = 1$的梯形积分进行积分。该积分的结果，时间步长是0.1，在表\ref{表6.6}中给出。该积分准确的LTE和$DD_3$估计一起被给出。从这个结果，很清楚$DD_3$估计大约是LTE准确值的7倍。为了弥补这一差异，额外误差控制，$\varepsilon_T$被引进。通过差分商获得的导数估计在(\ref{eq:6.61})被评估前用$\varepsilon_T$除。因为$\varepsilon_T$的值为10能产生满意的结果，所以可以得出结论，差分商公式大约比简单测试方程真实的LTE小一个量级。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.6.png}
+    \caption{梯形积分真实的LTE和$DD_3$估计的对比。}
+    \label{表6.6}
+\end{figure}
+
+尽管这个时间步长策略对线性电路工作地很好，但是该算法不能求解非线性测试电路。在非线性电路中，会遇到这种时间点，即时间步长被持续减小直到达到预设的最小值。这种时间点“上锁”的问题来自时间点求解中的迭代误差。
+
+每个电容电荷或者电感磁通量的精度被收敛准则$\varepsilon_r$和$\varepsilon_a$限制。对于电容的情况，不管$h_n$的值，$Q_{n+1}$和$Q_n$的不同或许会与收敛准则一样大。因此，电容电流的精度被下面的迭代误差限制
+\begin{equation}
+    \delta i = \frac{\varepsilon_r Q_{n+1}}{h_n}
+    \label{eq:6.62}
+\end{equation}
+理论上，当时间步长足够小时，$Q_{n+1}$的值会收敛到$Q_n$，但是该理论性质不能说明用来求解时间点的迭代过程的误差。除非在时间步长算法中该迭代误差是可解释的，不然在特定的时间点，时间步长可以被无限减小。在CHOKE，ECL，SCHMITT，和ASTABLE电路的瞬态分析中可以观察到这种情况发生。
+
+一旦被识别出来，这个误差可以通过对算法进行微小改动来解决。修正的误差准则是
+\begin{equation}
+    |\varepsilon_{\dot{x}}| \leq max{\varepsilon_r|\dot{x}_{n+1}|+\varepsilon_a, \frac{\varepsilon_r|x_{n+1}|}{h_n}}
+    \label{eq:6.63}
+\end{equation}
+简而言之，(\ref{eq:6.63})要求时间点$t_{n+1}$处的LTE小于相对误差乘以$\dot{x}_{n+1}$的绝对值，也就是迭代误差的绝对值\footnote{该处有缺失，按自己理解翻译的}。因此，从LTE的立场来说，给定收敛容限，时间点从来没有被要求比可能的更准确。
+
+采用(\ref{eq:6.63})对时间步长控制产生下面的策略。第一，容许的时间点误差，$E_D$，通过下面的方程计算得到
+\begin{equation}
+    E_D = max{\varepsilon_r|\dot{x}_{n+1}|+\varepsilon_a, \frac{\varepsilon_r|x_{n+1}|}{h_n}}
+    \label{eq:6.64}
+\end{equation}
+时间步长$h_{n+1}$随后通过下面的方程计算
+\begin{equation}
+    h_{n+1} = \sqrt{\frac{\varepsilon_TE_D}{|DD_3(t_{n+1})|}}
+    \label{eq:6.65}
+\end{equation}
+
+用(\ref{eq:6.65})取代(\ref{eq:6.61})可消除时间点的“上锁”问题。然而，(\ref{eq:6.65})经常产生的$h_{n+1}$太大；也就是说，如果$h_{n+1}$被用来计算时间点$t_{n+2}$，有很大的可能时间点$t_{n+2}$会被拒绝。如果$h_{n+1}$被限制得小于$2h_n$，就会得到好的多的结果。换句话说，时间步长在每个时间点只被容许加倍。
+
+这一提升的时间步长控制的表现在表\ref{表6.7}给出的结果中可以看到。该表给出了时间点数，迭代次数，和在四种不同的误差容限值下五种瞬态测试电路的分析要求的执行时间。对所有案例，瞬态容限，$\varepsilon_T$，等于10。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.7.png}
+    \caption{梯形积分截断误差时间步长控制结果。}
+    \label{表6.7}
+\end{figure}
+
+就像期待的那样，瞬态分析中花费的计算代价明显依赖要求的误差容限。举个例子，ECL电路对误差容限0.1\%，0.01\%，0.001\%，和0.0001\%分别需要87，172，292，和538次迭代。如果使用截断误差时间步长，瞬态分析程序的效率要求对误差容限有合理的选择。经验上，误差容限每降低一个量级会导致计算代价将近乘以2。
+
+梯形积分的迭代时间步长和截断时间步长之间的对比在表\ref{表6.8}中给出。该表给出了五个瞬态例子和十个标准基准电路的分析结果。迭代时间步长的结果从表\ref{表6.4}中取来，而截断误差时间步长控制的结果用$\varepsilon_T = 10$，$\varepsilon_r = 0.001$，和$\varepsilon_a = 10^{-12}$获得。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.8.png}
+    \caption{梯形积分的迭代时间步长和截断误差时间步长的比较。}
+    \label{表6.8}
+\end{figure}
+
+截断误差时间步长控制对一些电路（比如RC，ECL，和DIFFPAIR电路）能在计算代价方面产生大量的节约，但对另一些电路（比如CHOKE，SCHMITT，ASTABLE，TTLINV，ECLGATE，和SBDGATE电路）的计算代价要求大增。剩余的电路对任何一种算法的计算代价要求相近。
+
+迭代时间步长控制和截断误差时间控制的对比是相当徒劳的。在一些情况中，截断误差要求的时间步长比迭代时间步长控制使用的要小。在其他情况中，刚好相反。而且，一个特定能量存储元件在特定输出变量的精度上可能几乎没有影响。在这种情况中，在合理限制内，无论哪种时间步长控制获得的特定的输出都一样，即使两种时间步长控制的计算要求会非常不同。也就是说，表\ref{表6.8}中给出的电路的计算结果，本质上是相同的，尽管表\ref{表6.8}中的数据显示两种方法的计算代价相当不同。
+
+\section{带LTE时间步长控制的Gear方法}
+当和梯形方法进行比较的时候，Gear算法算更优的选择。尽管只有一阶和二阶Gear方法是A-stable的，但所有六种方法都是stiffly-stable的。可以预期，阶数超过2的积分方法对大多数瞬态分析都是可以用的。对给定的时间点，更高阶的方法导致更小的局部截断误差；该更小的LTE值，反过来，预示着瞬态分析可以在更少的时间点内执行完成。
+
+因为Gear算法，除了一阶方法，都是多步算法，所以(\ref{eq:6.43})中的系数同时依赖当前时间步长，$h_n$，和之前时间步长，$h_{n-1},\dots,h_{n+1-k}$。如果时间步长在时间点和时间点之间变化，那么对变时间步长的情况重写(\ref{eq:6.47})后得到
+\begin{equation}
+    \begin{bmatrix}
+1 &\dots  &\dots  &1  \\
+h_n &h_n+h_{n-1}  &\dots  &\sum^k_{i=1}h_{n+1-i}\\
+\vdots &\vdots  &  &\vdots  \\
+h^k_n &(h_n+h_{n-1})^k  &\dots  &(\sum^k_{i=1}h_{n+1-i})^k  \\
+\end{bmatrix}\begin{bmatrix}
+\alpha_0 \\
+\alpha_1 \\
+\vdots \\
+\alpha_k
+\end{bmatrix} = \begin{bmatrix}
+0 \\
+-1 \\
+\vdots \\
+0
+\end{bmatrix}
+\label{eq:6.66}
+\end{equation}
+求解方程(\ref{eq:6.66})确定系数$\alpha_i$。这个求解过程在每一个时间点上都重复；然而，构造和求解(\ref{eq:6.66})需要的计算代价通常是求解每个时间点的总计算代价中的一小部分。
+
+Gear算法的时间步长策略基本和梯形方法使用的一样。方程(\ref{eq:6.63})不改变，而(\ref{eq:6.65})由与积分阶数对应的表\ref{表6.9}中的方程替代。Gear的算法实现因此要求这三种改变。第一，(\ref{eq:6.66})必须在每个时间点的开始处被构建和求解。第二，计算等效代数支路关系的代码必须被修改为使用(\ref{eq:6.43})。最后，确定时间步长$h_{n+1}$的代码得被修正来使用表\ref{表6.9}中的方程。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.9.png}
+    \caption{Gear的六种方法的预测时间。}
+    \label{表6.9}
+\end{figure}
+
+为了验证高阶Gear方法提高的性能，对所有六种方法在五个瞬态案例上进行了测试。$\varepsilon_T = 100$，$\varepsilon_r = 0.001$，和$\varepsilon_a = 10^{-12}$的结果和同样误差容限下梯形方法的结果在表\ref{表6.10}中给出。对于启动，第一个时间点用二阶方法计算得到，之后依次类推直到获得期望的积分阶数。无论何时遇到源断点或者发生不收敛，该启动程序都会被重启。
+
+对用来获得表\ref{表6.10}中的结果的相对大的误差容限，没有一种Gear方法产生的计算结果比梯形方法的好得多。对RC电路，二阶和三阶方法都产生了一样的迭代次数，比梯形方法的结果多27\%。四阶方法在CHOKE电路上产生了最好的结果，Gear-4方法的迭代次数比梯形方法的少30\%。Gear-3方法在剩余的三个电路上产生了最少的迭代次数，而对这三种情况Gear-3方法和梯形方法的迭代次数的差小于10\%。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.10.png}
+    \caption{$\varepsilon_r = 0.001$和$\varepsilon_a = 10^{-12}$的非变阶Gear方法结果。}
+    \label{表6.10}
+\end{figure}
+
+误差容限被减小两个量级后重新进行了这些测试；特别地，$\varepsilon_T=10$，$\varepsilon_r = 0.00001$，而$\varepsilon_a = 10^{-14}$。这些测试的结果在表\ref{表6.11}中给出。在减小的误差容限下，高阶Gear方法的结果明显好于梯形方法的结果。三阶Gear方法在RC电路上产生了最少的迭代次数，且该迭代次数比梯形方法的迭代次数少34\%。Gear-5方法在CHOKE电路上产生了最少的迭代次数，和梯形方法比较，带来了40\%的迭代次数减少。Gear-4方法在剩余的电路中产生了最少的迭代次数，对ECL，SCHMITT，和ASTABLE电路，相对梯形方法，迭代次数分别减少了27\%，18\%，和33\%。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.11.png}
+    \caption{$\varepsilon_r = 0.00001$和$\varepsilon_a = 10^{-14}$的非变阶Gear方法结果。}
+    \label{表6.11}
+\end{figure}
+
+对这些例子，迭代次数18\%到40\%的减少在最好情况下能使执行时间减少13\%。对于SCHMITT电路，Gear-4方法的执行时间实际比梯形方法的执行时间多3\%，尽管在迭代次数上有着18\%的减少。执行时间和迭代次数之间这种分离的原因归咎于Gear方法额外的负担。例如，用梯形方法，ECL电路在每次迭代中需要15ms的执行时间。作为对比，Gear方法每次迭代的执行时间对Gear-2，Gear-3，Gear-4，Gear-5，和Gear-6分别是
+16ms，17.6ms，18.6ms，20ms，和22.5ms。Gear-2方法和梯形方法之间6\%的差别是由于构建系数$\alpha_i$的额外负担。Gear算法之间出现10\%到40\%的差别主要是由于在这些测试中形成差分商的方式低效。对该子程序更高效的编程会减少，但不是消除，给高阶Gear方法附加的负担。
+
+五阶或者六阶Gear算法中没有一种算法产生的结果，在基于迭代次数评估时，能一直好于三阶和四阶的。Gear-6方法对任意一个测试案例都无法产生出最优的结果，而Gear-5方法在较小的误差容限下仅对CHOKE电路能产生最少的迭代次数。
+
+五阶和六阶方法迭代次数上的这一增加不仅仅因为这些方法缺乏A-stability。RC电路由两个负的实特征值表征，而对该测试电路，所有六种方法都应该是稳定的。然而，Gear-4，Gear-5，和Gear-6方法在较大的误差容限下对RC电路的分析，相较于Gear-3方法，分别需要18\%，50\%，和134\%的额外迭代；对于较小的误差容限，这些方法相较于Gear-3方法，需要7\%，57\%，和238\%的额外迭代。
+
+据猜测，更高阶算法无法使迭代次数大幅减少的原因来自截断误差估计中固有的不精确。导数的估计是一个明显不精确的过程\cite{ref-44}。随着阶数增加，更高阶导数必须被评估，而LTE估计中的误差也会被期待增加。显然，LTE估计中的误差的增加遮挡了真实LTE理论的减少。结果，最好的阶数牵扯着在LTE理论较低值和LTE估计不精确中内在的增加之间的折中。这里给出的结果表明阶数超过4的Gear方法不能在迭代次数和执行时间上产生相称的减少。
+
+\section{变阶的Gear方法}
+表\ref{表6.10}-\ref{表6.11}中给出的结果表明积分的最优阶数，通过迭代次数测量，对不同仿真是不同的。因此，Gear算法的实现要求在积分过程中，有一种变化阶数以及时间步长的方法。
+
+这里开发的阶数策略是由Gear\cite{ref-66,ref-67}提出，Brayton等人\cite{ref-70}修正的。如果当前的阶数是k，那么k个时间点被计算后，$h_{n+1}$使用k-1阶，k阶，和k+1阶方程计算。如果k是1，那么跳过k-1阶方程，而如果k是最大的阶数，那么跳过k+1计算。产生最大$h_{n+1}$值的阶数随后被选中。然而，只有如果最优的$h_{n+1}$超过当前$h_{n+1}$乘以一个因子$R_0$\cite{ref-75}，阶数才会被改变；$R_0$的典型值是1.05到1.5。比如，如果积分在三阶进行，那么三个时间点后，二阶，三阶，和四阶的$h_{n+1}$就可以被计算。如果二阶公式确定的时间步长至少比三阶公式确定的大$R_0$倍，那么阶数会被降为2。另一方面，如果用四阶公式计算的时间步长至少比三阶值大$R_0$倍，那么阶数会被增加到4。否则，阶数是不变的。
+
+实验表明如果阶数测试在每个时间点，而不是每k个时间点上进行，那么要求的迭代就会更少。五个瞬态例子的这种变阶算法结果在表\ref{表6.12}中给出；MAXORD是该算法容许使用的最高阶数。表\ref{表6.12}中的数据对应着误差容限$\varepsilon_T = 10$，$\varepsilon_r = 0.001$，以及$\varepsilon_a = 10^{-12}$和$R_0 = 1.3$。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.12.png}
+    \caption{$R_0 = 1.3$，$\varepsilon_r = 0.001$和$\varepsilon_a = 10^{-12}$的变阶方法结果。}
+    \label{表6.12}
+\end{figure}
+
+表\ref{表6.12}中最有趣的观察是，无论最大积分阶数是多少，算法经常停留在2阶。只有在ASTABLE电路情况中才使用了三阶方法，而当使用三阶方法的时候，会导致12\%的迭代增加。
+
+在尝试回答为什么更高阶方法没有被使用中，在同样的误差容限下重复进行了变阶测试，不过$R_0 = 1.05$。该测试的结果在表\ref{表6.13}中给出。对于这个测试，对RC和CHOKE电路来说，阶数停留在2，而对ECL，SCHMITT，和ASTABLE电路来说，阶数停留在3。对于$R_0$中的变化，RC电路要求11\%更多的迭代，CHOKE电路要求9\%更少的迭代，ECL电路要求同样的迭代次数，SCHMITT电路要求31\%更少的迭代，而ASTABLE电路要求15\%更少的迭代。对大多数情况而言，$R_0$的值越小会导致越高效的仿真。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.13.png}
+    \caption{$R_0 = 1.05$，$\varepsilon_r = 0.001$和$\varepsilon_a = 10^{-12}$的变阶方法结果。}
+    \label{表6.13}
+\end{figure}
+
+这些测试随后用更小的误差容限进行了重复；特别地，$\varepsilon_T=10$，$\varepsilon_r = 0.00001$，$\varepsilon_a = 10^{-14}$，而$R_0 = 1.05$。该测试的结果在表\ref{表6.14}中进行了展示。在这个误差容限下，变阶Gear算法的结果在一些案例中好于从梯形方法获得的结果。对于RC电路，最高阶为3或者更高的情况，获得了一致的结果，即$MAXORD \geq 3$的迭代次数比梯形方法获得的迭代次数少13\%。对CHOKE电路，最高阶为5产生了最好的结果；$MAXORD = 5$的迭代次数比梯形方法的迭代次数少21\%。对于ECL电路，最高阶为5或者6产生的迭代次数比梯形方法的少11\%。然而，对于SCHMITT电路，最高阶为2是最好的，而$MAXORD = 2$的迭代次数比梯形方法的迭代次数大15\%。如果MAXORD比2大，那么SCHMITT电路的分析要求的迭代次数是MAXORD等于2的情况的两倍。最后，ASTABLE电路的分析无论MAXORD使用什么值，都要求多于5000次迭代。梯形方法，另一方面，要求3387次迭代来完成ASTABLE电路的瞬态分析。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter6/表6.14.png}
+    \caption{$R_0 = 1.05$，$\varepsilon_r = 0.00001$和$\varepsilon_a = 10^{-14}$的Gear变阶方法结果。}
+    \label{表6.14}
+\end{figure}
+
+阶数变化的机制相当程度上消除了使用更高阶算法的优势。对于名义上的误差容限，固定阶数Gear-2方法和梯形方法都比本章提出的变阶数Gear方法要求更少的计算代价。当施加更严格的精度要求时，与梯形方法比较，变阶Gear算法对一些电路在迭代次数方面能产生10\%到20\%的减少。
+
+\section{总结}
+数值积分方法包含两种类型：显式算法和隐式算法。因为很多电子电路产生刚性电路方程系统，所以数值积分技术必须是stiffly-stable的。对stiffly-stable方法的需要排除了大多数的显式方法。而且，隐式方法的优势，与显式方法对比，产生的结论是对瞬态分析任务来说，隐式积分方法更优。
+
+在可行的隐式方法中，梯形方法和Gear的方法是最具吸引力的。这两种算法都是多项式方法；有竞争力的Runge-Kutta方法比多项式方法要求更多的计算代价。
+
+一个精确和高效的瞬态分析程序必须包含一些动态改变时间步长的方法。最简单的时间步长控制方法是迭代时间步长控制，该方法仅依靠求解每个时间点需要的迭代次数来确定时间步长。然而，在给出的几个非线性电路例子中，迭代时间步长无法产生出可接受的计算结果。
+
+为了确保准确的瞬态分析，时间步长必须被控制得在每个时间点上产生可接受的LTE。详细描述了梯形积分的LTE时间步长控制的实现，而且给出了典型电路的结果。
+
+与梯形方法比较，两种Gear算法对给定的时间步长，有着理论上LTE更小的优势。这些算法也都被实现和测试了。更高阶方法的理论优势被两个姊妹问题，估计LTE时计算上的不精确和变化积分阶数时牵扯到的计算负担，遮挡。即使考虑最小的误差容限，与梯形方法比较起来，变阶Gear算法仍然无法产生相当大的计算提升。
+
+梯形积分，带着LTE时间步长控制，产生的计算结果与被测试的任意一种方法的结果一样精确。而且，出于这些原因，使用梯形积分总能带来更少的计算代价。SPICE2程序使用了本章详细讲述的带LTE时间步长控制的梯形积分。

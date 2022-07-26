@@ -1,0 +1,477 @@
+\chapter{SPICE输入语法}
+\label{App:3}
+
+SPICE程序的输入文件\footnote{在本附录中，短语"file"(文件)和"input deck"(输入卡)混合使用，短语"card"(卡)和“line”(线)也一样。}定义了电路，指明了要执行什么样的分析，以及产生什么样的输出。输入格式是一种“自由格式”类型，不要求在输入行的特定列位置输入数据。如果可能，程序会为没有指定值的参数提供合理的“默认”值。因此，用户只需要用一种简单的格式指定最少量的信息来仿真电路。
+
+数据域由一个或者多个空格，一个逗号，一个等号，一个右括号，或者一个左括号来分界。分界符前面的或者后面的空格被忽略。一行输入通过在续行的第一域之前加入一个加号(+)就可以和下一行连续起来。但是注意，一个特定的数据域不能在行之间被分开，因为行尾被当作了分界符。
+
+名称域以一个英文字母开头。只有名称的前七个字母数字字符会被程序保留。因此，名称“VERYLONGNAME”被缩写成名称“VERYLON”。名称用来识别电路元件，模型参数，输出变量，和程序关键字。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.1.png}
+    \caption{SPICE缩放因子}
+    \label{表A3.1}
+\end{figure}
+
+数字域可以是一个整数，比如12或者-44，一个浮点数，比如3.14159或者-6.32，或者用指数表示的数字，比如1E-14或者-2.73E3。任何数字后面都可以跟着表\ref{表A3.1}中给出的缩放因子中的一个。注意数字和它的缩放因子之间不可以有空格；域2PF和两个域2\quad PF不是等价的。紧随数字域的非缩放因子的字母被忽略。紧随缩放因子的字母也被忽略。因此，10，10V，10VOLTS，和10HZ全部表示数字10，而M， MA， MSEC，和MMHOS全部表示缩放因子$10^{-3}$。数字域1000，1000.0，1000HZ，1E3，1.0E3，1KHZ，和1K表示数字$10^{3}$是等价的。
+
+空白域特别地由两个逗号指定，逗号可以选择用空格分开。空白域等价于0数值域。因此，卡
+.MODEL QMOD NPN ,,\quad,\quad,4.7,,,\quad,19.0等价于
+.MODEL QMOD NPN 0\quad0\quad0\quad4.7\quad0\quad0\quad0\quad19.0
+
+输入的第一行是标题；标题的内容逐字打印在SPICE输出的每一节的头部。deck中的最后一张card是一张.END card。.END card唯一的目的是表示SPICE输入结束。除了标题card和.END card，输入卡片的顺序随意。
+
+通过把每个仿真的SPICE deck包含进输入，在一次SPICE运行中可以仿真几个电路。程序读输入直到遇到.END card，然后执行合适的仿真，随后再次读输入直到遇到下一张.END card。该过程一直进行直到所有的输入卡被读完。但是注意，如果一张.END卡被漏掉，那么两份分开的输入deck会被读作单一的一份输入deck，所以没有一个仿真会运行成功。
+
+\section{SPICE电路描述}
+电路通过一套元件卡来定义。电路中的每个元件被分配了一个独有的字母数字名称。电路中的每个节点被分配了一个独有的整数。节点数字0保留给了地节点。
+
+为了确保对电路的数学描述唯一，在电路互联上得施加一定的限制。特别地，电路中的每个节点，包括地节点，必须至少有两个元件与它连接。电路中的每个节点必须有一条接地的DC通路。电路不能含有电压源和/或电感的环路。
+
+电路中的每个元件由含有元件名称，连接该元件的电路节点，以及决定了该元件电气特性的参数的值的元件卡指定。元件名称的第一个字母指定了元件类型。
+
+十二个SPICE元件类型的格式在表\ref{表A3.2}中给出。括号中的数字域是可选的。名称AC和OFF是程序的关键字，这些会在本附录后面的章节解释。表\ref{表A3.2}中的字符串“XXXXXX”，“YYYYYY”，和“ZZZZZZ”表示任意的字母数字字符串。电阻名称，例如，必须以字母R开头，而且能够含有一到七个字符。因此，R，R1，RSE，ROUT，和R3AC2ZY都是有效的电路名称。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.2.png}
+    \caption{SPICE元件卡格式}
+    \label{表A3.2}
+\end{figure}
+
+\section{电阻}
+电阻名称从字母R开始。电阻卡含有名称，正节点，负节点，以及电阻值(单位ohms)：
+
+RXXXXXX N+ N- value
+
+电阻值不能是0或者负的。电阻两个节点的先后顺序不重要。
+
+例如：
+
+R37 19 14 1K    
+
+RFEED 37 3 1MEG
+
+\section{电容}
+电容的名称以字母C开头。电容卡含有名称，正节点，负节点，电容值(单位farads)，以及可选的初始条件：
+
+CXXXXXX N+ N- value [incond]
+
+电容值不能是0或者负的。初始条件是从正节点，流过电容，到负节点的0时刻的电容电流(单位amps)。如果没有指定初始条件，提供的是0值。
+
+例如：
+
+CBYP 13 0 1UF
+
+COSC 17 19 1OUF 7.6MA
+
+\section{电感}
+电感名称用字母L开头。电感卡含有名称，正节点，负节点，电感值(单位henries)，以及可选的初始条件：
+
+LXXXXXX N+ N- value [incond]
+
+电感的初始条件是0时刻的电感电压(单位volts)。如果没有指定初始条件，提供的是0值。
+
+例如：
+
+LSHUNT 13 7 1MH
+
+L31 2 3 1OUH 4.7VOLTS
+
+\section{耦合电感}
+电感之间的耦合用耦合电感卡指定。耦合元件名称用字母K打头。该卡含有名称，两个耦合电感的名称，以及耦合系数的值：
+
+KXXXXXX LYYYYYY LZZZZZZ value
+
+耦合系数的绝对值必须小于1。给耦合系数指定一个负值等价于反转耦合电感中任意一个的极性。两个耦合电感，LYYYYYY和LZZZZZZ，可以用任意一种顺序被输入。
+
+例如：
+
+K43 LAAA LBB 0.999
+
+\section{独立电压和电流源}
+独立电压源名称以字母V开头，而独立电流源名称以字母I开头。这些元件卡含有源名称，正节点，负节点，DC和瞬态值，而字符AC之后会跟着该ac值的幅度和相对相位：
+
+VXXXXXX N+ N- [dctrval] [AC acmag [acphs]]
+
+IXXXXXX N+ N- [dctrval] [AC acmag [acphs]]
+
+无论是dc/瞬态值还是ac值，又或者两者都会被忽略；如果没有指定值，提供的是0值。
+
+例如：
+
+VCC 17 0 5.0
+
+IIN 1 3 AC 1
+
+IIN 1 7 16 0.168 AC 0.3 45.0
+
+VMEAS 16 17
+
+对于瞬态分析，独立源可以被分配一个时间相关的值。如果给一个源分配了一个时间相关的值，那么0时刻的值会被用在DC分析上。有三种可行的时间相关源函数：PULSE，SIN，和EXP。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/图A3.1.png}
+    \caption{PULSE函数。}
+    \label{图A3.1}
+\end{figure}
+
+PULSE函数如图\ref{图A3.1}中所示。该函数含有七个参数：初始值，脉冲值，延迟值，上升时间，下落时间，脉冲宽度，和周期：
+
+PULSE (V1 V2 TD TR TF PW PER)
+
+只有初始和脉冲值必须被指定；对于剩余参数，如果它们没有被指定，那么会提供图\ref{图A3.1}中给出的默认值。变量TSTEP和TSTOP是打印增量，停止时间在.TRAN卡上指定，关于这点会在本附录的最后一节解释。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/图A3.2.png}
+    \caption{SIN函数。}
+    \label{图A3.2}
+\end{figure}
+
+SIN函数如图\ref{图A3.2}中所示。该函数含有五个参数：偏置值，幅度，频率(单位Hz)，延迟时间，以及衰减因子：
+
+SIN(V0 VA FREQ TD THETA)
+
+SIN函数由下面的方程定义
+\begin{equation}
+    V=\left\{\begin{matrix}
+V_0 & t\leq t_d  \\
+V_0 + V_A\{exp[-\theta(t-t_d)]\}\{sin[2\pi f(t-t_d)]\} & t \geq t_d \\
+\end{matrix}\right.
+\label{eq:A3.1}
+\end{equation}
+参数VO， VA，和FREQ必须被指定。剩余参数的默认值，TD和THETA，在图\ref{图A3.2}中给出。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/图A3.3.png}
+    \caption{EXP函数。}
+    \label{图A3.3}
+\end{figure}
+
+EXP函数在图\ref{图A3.3}中给出。该函数含有六个参数：初始值，终值，领先边延迟，领先边时间常数，下落边延迟，以及下落边时间常数：
+
+EXP (V1 V2 TD1 TAU1 TD2 TAU2)
+
+EXP函数由下面的方程定义
+\begin{equation}
+    V=
+\left\{\begin{matrix}
+V_1 & 0 \leq t \leq t_{d1}  \\
+V_1 + (V_2 - V_1)[1-exp(-\frac{t-t_{d1}}{\tau_1})] &t_{d1} \leq t \leq t_{d2}  \\
+V_1 + (V_2 - V_1)[1-exp(-\frac{t-t_{d1}}{\tau_1})] + (V_1 - V_2)[1-exp(-\frac{t-t_{d2}}{\tau_2})] & t \geq t_{d2} 
+\end{matrix}\right.
+\label{eq:A3.2}
+\end{equation}
+初始值和脉冲值必须被指定。剩余值的默认值在图\ref{图A3.3}中给出。
+
+\section{线性压控电流源}
+线性压控电流源的名称以字母G打头。这个元件卡含有名称，正节点，负节点，正控节点，负控节点，跨导值(单位mhos)，和延迟(单位secs)的可选值：
+GXXXXXX N+ N- NC+ NC- value [delay]
+
+如果没有指定延迟，那么会提供一个零值。
+
+例子：
+
+G35 2 0 5 0 0.1MMHO
+
+GXZ 17 3 19 7 20MMHO 5NS
+
+\section{非线性压控电流源}
+非线性压控电流源的名称以字母N打头。元件卡包含名称，正节点，负节点，正控节点，负控节点，初始条件，和多项式系数：
+
+NXXXXXX N+ N- NC+ NC- incond P1[P2 P3 \dots P20]
+
+初始条件是控制节点之间电压的初始“猜测”，必须被指定。程序使用该初始条件获得电路的DC工作点。取得收敛之后，程序继续迭代以获取控制电压的准确值。初始条件不需要准确，但是为了减少DC工作点的计算代价，初始条件应该相当接近真实的控制电压。
+
+只有第一个多项式系数需要被指定；剩余的多项式系数没有被指定的话会被设置为0。指定的系数总数不能超过20个：
+
+例子：
+
+N31 21 0 21 0 0.0 0.2 0.05 0.007
+
+\section{半导体器件}
+SPICE程序中包含的四种半导体器件模型含有很多参数。而且，电路中很多器件经常由同一套器件模型参数定义。出于这些原因，一套器件模型参数被定义在一张分立的.MODEL卡上，并被分配了一个特有的模型名称。SPICE中的器件元件卡之后参考该模型名称。这种方案减轻了在每个器件元件卡上重复指定模型参数的需求。
+
+每张器件元件卡含有器件名称，连接该器件的节点，以及器件模型名称。另外，每个器件可能会被指定两个可选参数：一个面积因子和一个初始条件。
+
+面积因子决定了指定模型的等效并行器件的数目。例如，面积因子为3.0预示着该器件等价于三个指定模型名称的器件。
+
+初始条件被包含进来是为了提高含有超过一个稳态的电路的DC收敛性。如果一个器件被指定为OFF，那么DC工作点会在该器件端口电压设置为0的情况下被决定。获得收敛后，程序会继续迭代以获得端口电压的准确值。如果电路的DC稳态超过一个，那么OFF选项会被用来强制解与期望的状态一致。如果在实际中一个器件导通但该器件被指定为了OFF，那么程序会获得正确的解(假定求解收敛)但需要更多次的迭代，因为程序必须独立地收敛到两个不同的解。
+
+\section{二极管}
+二极管名称以字母D开头。一张二极管卡含有名称，阳极节点，阴极节点，模型名称，面积因子的可选值，以及可选的初始条件：
+
+DXXXXXX NA NC MODEL [area] ["OFF"]
+
+例子：
+
+DBRI 23 25 DM1
+
+DS1 24 27 SBD37X 2.5 OFF
+
+\section{双极型结晶体管}
+BJT名称以字母Q开头。一张BJT卡含有名称，集电极节点，基极节点，发射极节点，模型名称，面积因子的可选值，以及可选的初始条件：
+
+QXXXXXX NC NB NE MODEL [area] ["OFF"]
+
+例子：
+
+Q23 4 6 9 QMODEL
+
+QLS 23 26 29 FAST 2.0 OFF
+
+\section{结场效应晶体管}
+JFET名字以字母J开头。JFET卡含有名称，漏节点，栅节点，源节点，模型名称，面积因子的可选值，和可选的初始条件：
+
+JXXXXXX ND NG NS MODEL [area] ["OFF"]
+
+例子：
+
+J34 6 7 8 JMOD2
+
+JIN 1 17 20 JM0 1.5 OFF
+
+\section{MOSFET的}
+MOSFET名称以字母M开头。MOSFET卡含有名称，漏节点，栅节点，源节点，衬底节点，模型名称，面积因子的可选值，和可选的初始条件：
+
+MXXXXXX ND NG NS NB MODEL [area] ["OFF"]
+
+例子：
+
+MLONG 23 25 27 28 MOS1 0.1
+
+MIN 12 14 16 1 MOS2
+
+MGATE 11 14 17 10 MOS2 2.5 OFF
+
+\section{.MODEL卡}
+给定模型名称的器件模型参数被指定在一张.MODEL卡上。该卡含有单词“.MODEL”，模型名称，器件模型类型，以及模型参数值：
+
+.MODEL name type [parameter values]
+该模型名称可以是一个随意的名称。模型类型是表\ref{表A3.3}中给出的七个关键词中的一个。注意器件极性被指定为模型定义的一部分。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.3.png}
+    \caption{模型类型关键词。}
+    \label{表A3.3}
+\end{figure}
+
+每个SPICE模型参数通过唯一的一个关键词引用。没有指定的模型参数被分配了默认值。二极管模型参数，关键词，和默认值在表\ref{表A3.4}中列出。表\ref{表A3.5}含有BJT模型的参数关键字和默认值。JFET参数关键字和默认值在表\ref{表A3.6}中给出，而表\ref{表A3.7}中含有MOSFET模型参数的关键词和默认值。这四种模型在本论文的附录\ref{App:2}中进行了详细描述。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.4.png}
+    \caption{SPICE二极管模型参数。}
+    \label{表A3.4}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.5.png}
+    \caption{SPICE BJT 模型参数。}
+    \label{表A3.5}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.6.png}
+    \caption{SPICE JFET 模型参数。}
+    \label{表A3.6}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.7.png}
+    \caption{SPICE MOSFET 模型参数。}
+    \label{表A3.7}
+\end{figure}
+
+模型参数可能会被用两种不同的方法指定。第一种，也是最简单的一种，方法是指定参数关键词，之后是等号(=)，之后是参数值。例如，下面的卡片定义了模型名称QX：
+
+.MODEL QX\footnote{原文中为QN} NPN (BF=30, RB=50, IS=1E-15, TF=INS)
+模型QX是一个npn BJT，$B_F$等于30，$r_b$等于50，$I_S$等于$10^{-15}$，而$t_F$等于$10^{-9}$。没有指定的参数被分配的默认值在表\ref{表A3.5}中给出。
+
+第二种定义模型参数值的方法是通过一串数字字符串。这些值的顺序必须与表\ref{表A3.4}-\ref{表A3.7}中给出的关键字的顺序一致。参数位置用连续的逗号跳过。下面的模型卡
+
+.MODEL QX\footnote{原文中为QN} NPN 30,,1E-15,50,,,,,,,,,,1NS
+等价于之前定义的模型QX。
+
+\section{子电路}
+包含SPICE元件的子电路可以用与器件模型相似的方式来定义和引用。输入deck中的子电路是由一组元件卡定义的；无论子电路何时被引用，程序随后会自动插入元件组。对子电路的规模或者复杂度没有限制。图\ref{图A3.4}中展示的三种电路构成了可能的子电路。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/图A3.4.png}
+    \caption{SPICE可能的子电路。}
+    \label{图A3.4}
+\end{figure}
+
+子电路名称以字母X开头。器件卡包含名称，子电路节点，和子电路名称。图\ref{图A3.4}中所示的多发射极器件可以通过下面的卡在输入deck中指定：
+
+X13 2 4 17 3 1 MULTI
+
+节点的顺序必须与它们在子电路卡中定义的一致。
+
+\section{.SUBCKT卡}
+子电路由.SUBCKT卡定义。该卡含有字母“.SUBCKT”，子电路名称，和外部节点。一个子电路可能有1到20个外部节点。.SUBCKT卡之后的元件卡组定义子电路。子电路定义中的最后一张卡在.FINIS卡中\footnote{原文缺字，此句是推断翻译的}。图\ref{图A3.4}中展示的多发射极器件由下面的卡组指定：
+
+.SUBCKT MULTI 1 2 3 4 5\\
+Q1 1 2 3 QLONG\\
+Q2 1 2 4 QLONG\\
+Q3 1 2 5 QLONG\\
+.FINIS
+
+发生在.SUBCKT卡和.FINIS卡之间的模型或者控制卡与它们在级联之外有着相同的影响。子电路不能级联；也就是说，子电路中不能包含其他子电路。
+
+\section{控制卡}
+除了指定电路，SPICE输入deck还指定要执行的分析和用户希望的输出。这些额外的指定都是通过表\ref{表A3.8}中总结的SPICE控制卡来输入的。这些控制卡的语法在本附录下面的章节会被描述。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.8.png}
+    \caption{SPICE 控制卡。}
+    \label{表A3.8}
+\end{figure}
+
+\section{标题卡}
+该卡必须是deck中的第一张卡。它含有任务的字母数字标题，会给程序的各种输出章节打印标题。
+
+\section{.END卡}
+该卡含有字符“.END”，必须是deck中的最后一张卡。如果只运行一次仿真，.END卡会被忽略。
+
+\section{评论卡}
+该卡容许对输入deck进行记录。该卡第一个非空字符是一个星号(*)；该卡虽然用列表打印，但是会被程序忽略。
+
+\section{.OUTPUT卡}
+该卡定义了输入变量，并指定了要打印或者绘制的输出的分析。输出也许会是节点电压差，或者电压源电流。另外，在AC分析中，输出噪声，输入噪声，以及任一失真测量都可以被指定为输出以及打印或者绘制。
+
+.OUTPUT卡的一般语法如下所示：
+\begin{equation*}
+.OUT \begin{bmatrix}
+VXXXXXX \quad N+ \quad N- \\
+IXXXXXX \quad VYYYYYY \\
+ONOISE \\
+RINOISE \\
+HD2 \\
+HD3 \\
+SIM2 \\
+DIM2 \\
+DIM3
+\end{bmatrix}\quad "PRINT"\quad [options]\quad "PLOT"\quad [options]
+\end{equation*}
+对于电压输出，输出名称之后是正节点和负节点。对于电流输出，输出名称之后是电压源名称。如果电流从源正节点，经过源，流到源负节点，那么电流是正的。
+
+关键词ONOISE和RINOISE分别代表着输出噪声和反射输入噪声。关键词HD2，HD3，SIM2，DIM2，DIM3代表着失真分析中的失真产品。这些产品会在本附录后面的章节详细介绍。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A3/表A3.9.png}
+    \caption{SPICE 输出选项。}
+    \label{表A3.9}
+\end{figure}
+
+在用SPICE执行的任意一种分析中，输出变量可以被打印出或者绘制出。.OUTPUT卡也控制着输出变量何时以及如何被作为输出。SPICE中可行的各种输出选项在表\ref{表A3.9}中列出。通过在关键词PRINT后添加期望的输出选项，输出可以用表格的形式打印出来。例如，下面的.OUTPUT卡
+
+.OUTPUT V7 7 0 PRINT DC TR MAG PHS
+
+会打印出DC转移曲线分析和瞬态分析中的节点电压7。另外，AC分析中V7的幅度和相位都会被打印出来。
+
+在关键词PLOT之后添加期望的输出选项可以获得一个输出的线打印图。在每个输出选项后面也许会加入PLOT限制。如果没有包含plot限制，程序将自动确定plot限制。下面的.OUTPUT卡
+
+.OUTPUT v7 7 0 PLOT DC TR 0 5 MA
+
+会线打印绘制出DC转移曲线分析，瞬态分析，和AC分析中产生的V7。在AC分析中，V7的幅度会被绘制。程序在瞬态绘制中使用plot限制(0,5)，而在DC和AC分析绘制中会确定合适的限制。
+
+\section{.DC卡}
+该卡定义了DC转移曲线源和限制。它含有字母“.DC”，之后是电压或者电流源名称，之后是起始值，停止值，以及加的增量。例如，下面的卡\\
+.DC VIN 0.5 5.0 0.25\\
+会产生电压源VIN，以0.25volts为增量从0.5volts扫描到5volts。
+
+\section{.TF卡}
+该卡定义了DC小信号分析的小信号输入和输出。它含有字母“.TF”，之后是小信号输出变量和小信号输入源。如果下面的卡\\
+.TF VOUT VIN\\
+被包括进输入deck，那么作为DC工作点分析的一部分，程序会计算转移函数(VOUT对VIN的比率)，VIN处的小信号输入阻抗，以及VOUT处的小信号输出阻抗。VOUT必须是.OUTPUT卡中已经定义的输出变量，而VIN必须是已经在电路描述中定义的源。
+
+\section{.SENS卡}
+该卡含有字母“.SENS”，之后是一个到十个已经在.OUTPUT卡中定义的输出变量名称。作为一个例子，如果下面的卡\\
+.SENS VOUT V12 VINT\\
+被包含在输入deck中，那么程序会确定VOUT，V12和VINT关于每个电路参数的DC小信号敏感度。JFET和MOSFET模型参数没有被包含在敏感度计算中。
+
+\section{.TRAN卡}
+该卡含有瞬态分析仿真控制。该卡最少的控制信息需要包含字母“.TRAN”，之后是打印时间增量和停止时间。程序会从0时刻开始，用给定的打印增量计算每个时间点直到停止时间。
+
+开始时间可以被贴在停止时间之后。在这种情况下，程序会从0时刻开始，计算每个时间点直到停止时间；但是，只有开始时间和停止时间之间的时间点会被打印。这个选项是为那些电路被允许到达稳态解的仿真设计的。
+
+\section{.FOUR卡}
+Fourier分析可以在.FOUR卡上指定。该卡含有字母“.FOUR”，之后是输出变量名称和基本频率。如果被指定，程序会计算指定输出变量响应的前九个Fourier谐波。
+
+\section{.AC卡}
+该卡含有AC分析控制。.AC卡含有字母“.AC”，之后是下面三种频率变量类型之一：
+\begin{enumerate}
+    \item 字母“DEC”之后是每十倍频的点，起始频率，和停止频率。
+    \item 字母“OCT”之后是每倍频的点，起始频率，和停止频率。
+    \item 字母“LIN”之后是点数，起始频率，和停止频率。
+\end{enumerate}
+如果.AC卡被包含进deck中，那么程序会在.AC卡上指定的频率范围内执行电路的AC分析。
+
+\section{.NOISE卡}
+该卡控制着电路的噪声分析。它含有字母“.NOISE”，之后是噪声输出参考，噪声输入参考，以及总结间隔。程序会在指定的输出处计算等效输出噪声，同样也会在指定的输入处计算等效的输入噪声。另外，电路中的每个噪声生成器的贡献会在每n个点上被打印出来，这里n是总结间隔。如果总结间隔是0，那么就不会发生总结打印输出。
+
+\section{.DISTO卡}
+该卡含有控制失真分析的参数。失真分析，反过来，会与AC小信号分析一起被执行。这种子分析会决定谐波失真产品和互调失真产品。用户指定输出负载电阻，RLOAD。每个失真产品是在特定失真频率处传到RLOAD的功率相对在基本频率处传到RLOAD的功率。
+
+谐波失真产品是输出中的较高谐波的相对幅度。如果电路在频率$f_1$处含有一个正弦激励，那么HD2，二阶谐波失真产品，就是在频率2$f_1$处RLOAD中的相对功率。类似地，HD3，三阶谐波失真产品，是在频率$3f_1$处RLOAD中的相对功率。
+
+互调失真产品是在频率$f_1$和$f_2$处用两个正弦激励测得的。SIM2，二阶和互调失真产品，是在频率$f_1+f_2$处传递的相对功率。类似地，DIM2\footnote{原文中为DIM3}，二阶差互调失真产品，是在频率$f_1-f_2$处传递的相对功率。最后，DIM3，三阶差互调失真产品，是在频率$2f_1-f_2$处传递的相对功率。
+
+这些失真测量中的任何一种都可以在.OUTPUT卡上的每个频率点上被打印或者绘制出来。另外，电路中每个非线性对整体失真的贡献也可以被打印出来。
+
+.DISTO卡含有字母“.DISTO”，之后是负载电阻名称，总结间隔，参考功率水平，两种失真频率的比率，以及$f_2$信号的幅度，如下：\\
+.DISTO RLOAD INTER SKW2 REFPWR SPW2\\
+RLOAD是输出负载电阻的名称，在那里所有的功率产品都会被计算。程序会在每n个点处打印每个失真源的贡献，这里n是总结间隔。如果总结间隔是0，那么就不会发生总结打印输出。SKW2是$f_2/f_1$的比率；$f_1$，当然，是.AC卡控制的基本频率。如果SKW2没有被指定，那么提供的值是0.9。REFPWR是参考功率水平，被用在计算失真产品中。如果没有被指定，使用的值是1mW；也就是说，所有的失真产品被用dBm表示。SPW2是$f_2$信号的幅度相对基本$(f_1)$信号的幅度。如果SPW2没有被指定，那么假定值为1。
+
+\section{.TEMP卡}
+该卡含有仿真执行时的温度。模型数据通常指定在27$^{\circ}$C (300 K)。如果该卡被删除了，仿真也会在27$^{\circ}$C被执行。温度卡含有字母“.TEMP”，之后是一到五个温度。例如，下面的卡\\
+.TEMP -25 0 25 50 100\\
+会使得SPICE仿真在-25$^{\circ}$C，0$^{\circ}$C，25$^{\circ}$C，50$^{\circ}$C和100$^{\circ}$C进行。
+
+\section{.OPTIONS卡}
+该卡容许用户为了特定的仿真目的重置程序控制。该卡含有字母“.OPTIONS”，之后是下面这些选项中的任意一个，顺序无所谓：\\
+ACCT\quad 把程序的各种章节的执行时间打印出来，同时也打印出其他的记录信息。\\
+LIST\quad 把输入数据的总结列表打印出来。\\
+NOMOD\quad 压缩模型参数的打印输出。\\
+NODE\quad 把节点列表打印出来。\\
+OPTIONS\quad 把选项的预设值打印出来。\\
+GMIN=X\quad 重置GMIN的值，程序容许的最小的电导。GMIN的默认值是$10^{-12}$。\\
+RELTOL=x\quad 重置程序的相对误差容限。RELTOL的默认值是0.001(0.1\%)。
+ABSTOL=x\quad 重置程序的绝对误差容限。ABSTOL的默认值是$10^{-12}$。\\
+TRTOL=x\quad 重置瞬态误差容限。TRTOL的默认值是10.0。\\
+CHGTOL=x\quad 重置程序的电荷容限。CHGTOL的默认值是$10^{-14}$。\\
+TNOM=x\quad 重置正常温度。TNOM的默认值是27$^{\circ}$C (300 K)。\\
+ITL1=x\quad 重置DC迭代限制。默认值是100。\\
+ITL2=x\quad 重置DC转移曲线迭代限制。默认值是20。\\
+ITL3=x\quad 重置低瞬态分析迭代限制。默认值是4。\\
+ITL4=x\quad 重置瞬态分析时间点迭代限制。默认值是10。\\
+ITL5=x\quad 重置瞬态分析总的迭代限制。默认值是5000。\\
+LIMTIM=x\quad 重置程序的时间限制。默认值是2000ms。\\
+LIMPTS=x\quad 重置在一次DC，AC，或者瞬态分析中计算的总点数。默认值是201。\\
+LVLCOD=x\quad 如果x是2，矩阵解的机器码会被产生出来。否则，不会产生机器码。LVLCOD的默认值是1。\\
+LVLTIM=x\quad 如果x是1，使用迭代时间步长控制。如果x是2，使用截断误差时间步长。LVLTIM的默认值是2。

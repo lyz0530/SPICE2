@@ -1,0 +1,755 @@
+\chapter{SPICE元件模型}
+\label{App:2}
+SPICE2包含着表\ref{表A2.1}中列出的十二个电路元件的内建模型。线性元件包括理想电阻，电容，电感，互感，独立电压源和电流源。SPICE中已经实现的非线性元件包括非线性压控电流源，以及四种常见的半导体器件：二极管，双极型结型晶体管（BJT的），结型场效应晶体管（JFET的），和绝缘栅场效应晶体管（IGFET的或者MOSFET的）。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/表A2.1.png}
+    \caption{SPICE元件。}
+    \label{表A2.1}
+\end{figure}
+
+\section{线性元件}
+表\ref{表A2.1}中列出的七种线性元件是通过理想支路关系建模的。在DC和瞬态分析中，图\ref{图A2.1}中给出的支路关系指明了这些元件的电气特性。在图\ref{图A2.2}中给出的相量关系在小信号AC分析中使用。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.1.png}
+    \caption{DC和瞬态分析的SPICE线性支路关系。}
+    \label{图A2.1}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.2.png}
+    \caption{AC分析的SPICE线性支路关系。}
+    \label{图A2.2}
+\end{figure}
+
+电容和电感或许会被赋予初始条件，以适应在瞬态响应开始时电路处于非平衡态的情况。电容的初始条件是电容电流在0时刻的值。对于电感，初始条件是电感电压在0时刻的值。如果省略了电容和电感的初始条件，就假定0电容电流和0电感电压的平衡情况。电感之间的耦合通过分立的耦合元件加入。两个电感之间的互感是由耦合系数k指定的，而k通过下面的方程定义
+\begin{equation}
+    k = \frac{M}{\sqrt{L_1L_2}}
+    \label{eq:A2.1}
+\end{equation}
+这里M是电感$L_1$和$L_2$之间的互感。k的绝对值必须小于1；也就是说，不容许理想耦合的情况发生。如果k是负的，耦合的方向要反转；这一反转等效于反转任意一个耦合电感的极性。
+
+独立电压和电流源是电路的输入激励。独立源的值因此依赖于分析的类型。对于DC工作点分析，所有的独立源都有恒定的DC值。在瞬态分析中，独立源要不有恒定值，要不有与时间相关的值。对于AC分析，独立源的相量值由幅度和相对相位指定。
+
+独立源的DC和瞬态分析值由可能与时间相关的单个值指定。如果电源值是与时间相关的，那么对于DC分析就使用0时刻的值。
+
+独立源的AC值由幅度和相对相位的值分开指定。如果电路只有一个AC输入，就像通常的情况，把AC输入源的值设置为单位幅度和0相位是方便的。每一个AC输出变量的值这样就等于了对于输入源的转移函数的输出。
+
+压控电流源是SPICE程序中包含的唯一的线性受控源。为了在AC分析中对“过相位”建模，给这个元件添加了一个线性延迟算子。复数的，与频率相关的跨导由下面的方程决定
+\begin{equation}
+    g_m(j\omega) =G_m exp[-j\omega \tau]
+    \label{eq:A2.2}
+\end{equation}
+这里$G_m$是0频率跨导，$\tau$是延迟，而$\omega$是角频率($\omega = 2\pi f$)。对于DC和瞬态分析，忽略延迟。
+
+\section{非线性压控电流源}
+SPICE中包含非线性压控电流源是为了，在一定程度上，允许包含任意非线性的电路分析。这个元件的模型与线性压控电流源一样，除了转移特性是由多项式定义的
+\begin{equation}
+    I = p_1V+p_2V^2+p_3v^3+\dots+p_{20}v^{20}
+    \label{eq:A2.3}
+\end{equation}
+多项式(\ref{eq:A2.3})的阶数不能超过20。
+
+对于AC分析，每一个非线性压控电流源都是通过一个线性压控电流源和一个由下面的方程决定的跨导值来建模的
+\begin{equation}
+    g_m = \frac{\partial I}{\partial v}|_{op} = p_1 + 2p_2v + 3p_3v^2 + \dots + 20p_{20}v^{19}
+\end{equation}
+非线性压控电流源不包含延迟算子。
+
+\section{二极管模型}
+SPICE二极管模型对结型二极管或者Schottky-Barrier二极管(SBD的)都是适用的。该模型在图\ref{图A2.3}中进行了原理展示。该二极管的欧姆电阻通过线性电阻$r_s$建模。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.3.png}
+    \caption{SPICE二极管模型。}
+    \label{图A2.3}
+\end{figure}
+
+该二极管的DC特性由非线性电流源$I_D$建模。$I_D$的值由下面的方程\footnote{参数，$V_t$，是热电压，等于$kT/q$，这里k是Boltzmann常数，T是绝对温度，以Kelvin为单位，而q是电子电荷。$V_t$在室温下大约是25.85mv。}决定
+\begin{equation}
+    I_D = I_S[exp(\frac{V_D}{nV_t})-1]
+    \label{eq:A2.5}
+\end{equation}
+
+参数$I_S$，$r_S$，和n从forward-biased二极管特性的DC测量中评估。$log(I_D)$关于$V_D$的图像在图\ref{图A2.4}中展示。在操作的理想区域，即此图中对应的二极管电压小于600mv的地方，二极管特性由下面的方程决定
+\begin{equation}
+    log_{10}(I_D) = log_{10}(I_S) + \frac{2.3V_D}{nV_t}
+    \label{eq:A2.6}
+\end{equation}
+在室温下，如果n是1，(\ref{eq:A2.6})的斜率的倒数(inverse slope)近似为60mV每十倍。饱和电流，$I_S$，是(\ref{eq:A2.6})的外插截距电流。实验上，$I_S$是从理想工作区中的几个($V_D$,$I_D$)点评估来的。发射系数，n，是从二极管特性在理想区域的斜率决定的。在大多数的情况下，发射系数是1。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.4.png}
+    \caption{在forward-bias区域$log(I_D)$关于$V_D$的图像。}
+    \label{图A2.4}
+\end{figure}
+
+实际上，在较高偏置水平下，二极管电流会偏离(\ref{eq:A2.5})给出的理想指数特性。该偏离是由于二极管中存在欧姆电阻以及高水平的注入效应\cite{ref-77}。高水平的注入没有在SPICE二极管模型中包含。因此，欧姆电阻和高水平注入的影响都是通过欧姆电阻$r_S$来建模的。$r_S$的值由真实二极管电压与理想指数特性在特定电流下的偏离决定。实际上，$r_S$是在几个$I_D$的值上评估并取平均得到的，因为$r_S$的值依赖于二极管电流。
+
+\section{二极管电荷存储}
+图\ref{图A2.3}中所示的电荷存储元件$Q_D$是二极管电荷存储的模型。电荷$Q_D$由下面的方程决定
+\begin{equation}
+    Q_D = \tau_t I_S[exp(\frac{V_D}{nV_t})-1] + C_{jo}\int^{V_D}_{0}[1-\frac{V}{\phi_B}]^{-m}dV
+    \label{eq:A2.7}
+\end{equation}
+该元件等价地可以用电容关系定义
+\begin{equation}
+    C_D = \frac{\partial Q_D}{\partial V_D} = \frac{\tau_t I_S}{nV_t}exp(\frac{V_D}{nV_t}) + C_{jo}[1-\frac{V_D}{\phi_B}]^{-m}
+    \label{eq:A2.8}
+\end{equation}
+
+电荷存储元件$Q_D$对二极管中的两种完全不同的电荷存储机制进行了建模。结耗尽区的电荷存储通过参数$C_{jo}$，$\phi_B$，和m来建模。这些参数通过几个反偏置下的电容桥接测量获得。典型地，对于结二极管和SBD的，$\phi_B$是0.7-0.8 volts，而m是0.3-0.5。 
+
+由于注入少量载流子而出现的电荷存储由(\ref{eq:A2.7})和(\ref{eq:A2.8})中的指数项来建模。该电荷存储的机制由转换时间$\tau_t$决定。实际上，参数$\tau_t$是由脉冲延时测量评估的。
+
+\section{小信号二极管模型}
+二极管小信号线性模型如图\ref{图A2.5}所示。电导，$g_D$，是二极管电流，$I_D$，关于二极管电压的导数：
+\begin{equation}
+    g_D = \frac{\partial I_D}{\partial V_D}|_{op} = \frac{I_S}{V_t}exp(\frac{V_D}{nV_t})|_{op}
+    \label{eq:A2.9}
+\end{equation}
+小信号电容$C_D$在(\ref{eq:A2.8})中给出。自然地，$g_D$和$C_D$是在DC工作点处评估的。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.5.png}
+    \caption{线性化的，小信号二极管模型。}
+    \label{图A2.5}
+\end{figure}
+
+\section{BJT模型}
+SPICE的第一个版本包含BJT\cite{ref-1}的两个分立的模型。较简单的那个模型基于熟知的Ebers-Moll模型\cite{ref-78}附加基区宽度调节\cite{ref-79}。在SPICE1中更复杂的那个BJT模型是基于Gummel和Poon\cite{ref-80,ref-81,ref-82}提出的积分电荷模型。
+
+SPICE1中使用的这两个BJT模型在SPICE2中被整合成了一个单一的BJT模型。SPICE2 BJT模型在图\ref{图A2.6}中\footnote{图\ref{图A2.6}中的原理图是一个npn器件的。对于pnp晶体管，$V_{BE}$，$V_{BC}$，和$V_{CE}$的极性必须被反转，而电流源$I_B$和$I_C$的极性也必须被反转。下面这些所有的方程都是针对npn器件的。}进行了原理描述。BJT的基极，集电极，和发射极的欧姆电阻通过线性电阻$r_b$，$r_c$，和$r_e$来建模。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.6.png}
+    \caption{SPICE BJT模型。}
+    \label{图A2.6}
+\end{figure}
+
+固有BJT的DC特性由非线性电流源$I_C$和$I_B$决定。$I_C$和$I_B$通过下面的方程定义。
+\begin{equation}
+    I_C = \frac{I_S}{Q_B}[exp(\frac{V_{BE}}{V_t}) - exp(\frac{V_{BC}}{V_t})] - \frac{I_S}{B_R}[exp(\frac{V_{BC}}{V_t})-1] - C_4I_S[exp(\frac{V_{BC}}{n_{CL}V_t})-1]
+    \label{eq:A2.10}
+\end{equation}
+\begin{equation}
+    I_B = \frac{I_S}{B_F}[exp(\frac{V_{BE}}{V_t})-1] + C_2I_S[exp(\frac{V_{BE}}{n_{EL}V_t})-1] + \frac{I_S}{B_R}[exp(\frac{V_{BC}}{V_t})-1] + C_4I_S[exp(\frac{V_{BC}}{n_{CL}V_t})-1]
+    \label{eq:A2.11}
+\end{equation}
+
+基极电荷，$Q_B$，是由零偏置下的多数载流子电荷分开的基极区域的所有的多数载流子电荷。$Q_B$\cite{ref-82,ref-83}的简单表征得到下面的$Q_B$的定义：
+\begin{equation}
+    Q_B = 1 + \frac{1}{V_A}\int^{V_{BE}}_0\frac{dV}{[1-\frac{V}{\phi e}]^{m_e}} + \frac{1}{V_B}\int^{V_{BC}}_0\frac{dV}{[1-\frac{V}{\phi c}]^{m_c}} - \frac{I_S}{Q_BI_K}[exp(\frac{V_{BE}}{V_t})-1] + \frac{I_S}{Q_BI_{KR}}[exp(\frac{V_{BC}}{V_t})-1]
+    \label{eq:A2.12}
+\end{equation}
+
+在零偏置下，(\ref{eq:A2.12})得到的结果是$Q_B$为1。(\ref{eq:A2.12})中的积分项对发射极和集电极耗尽区中的电荷存储进行了建模，这里(\ref{eq:A2.12})中的指数项对基极区域中的多数载流子的过量电荷进行了建模。因为电荷电中性要求，该过量的多数载流子电荷等于注入的少数载流子电荷。
+
+方程(\ref{eq:A2.12})也可能被重新声明为下面更简单的方程
+\begin{equation}
+    Q_B = Q_1 + \frac{Q_2}{Q_B}
+    \label{eq:A2.13}
+\end{equation}
+对(\ref{eq:A2.13})中的$Q_B$直接求解得到下面的结果
+\begin{equation}
+    Q_B = \frac{Q_1}{2} + \frac{1}{2}\sqrt{Q^2_1 + 4Q_2}
+    \label{eq:A2.14}
+\end{equation}
+在SPICE2中，(\ref{eq:A2.14})被进一步简化得到下面的近似表达式
+\begin{equation}
+    Q_B = \frac{Q_1}{2}[1 + \sqrt{1 + 4Q_2}]
+    \label{eq:A2.15}
+\end{equation}
+基极的耗尽层电荷存储由基极电荷的$Q_1$部分计算得到。通过定义，$Q_1$在0偏置下为1；该声明反映的事实是在零偏置下物理基极宽度和电气基极宽度相等。如果两个结都是正向偏置的，电气基极宽度会比物理基极宽度大，而$Q_1$也比1大。相反，如果两个结都是反向偏置的，那么$Q_1$就比1小，因为电气基极宽度小于物理基极宽度。
+
+在SPICE2中，$Q_1$通过下面的方程近似
+\begin{equation}
+    Q_1 = [1 - \frac{V_{BC}}{V_A} - \frac{V_{BE}}{V_B}]^{-1}
+    \label{eq:A2.16}
+\end{equation}
+因此，偏置对基极宽度的相对重要性，以及因此的基极电荷，由两个参数$V_A$和$V_B$决定。这些参数分别被参考为正向和反向早期电压。
+
+基极电荷中的$Q_2$部分是因注入的少数载流子而产生的过量的多数载流子的基极电荷。这个电荷，由下面的方程定义
+\begin{equation}
+    Q_2 = \frac{I_S}{I_K}[exp(\frac{V_{BE}}{V_t})-1] + \frac{I_S}{I_{KR}}[exp(\frac{V_{BC}}{V_t})-1]
+    \label{eq:A2.17}
+\end{equation}
+过量的多数载流子基极电荷很明显是无关紧要的，直到注入的少数载流子电荷达到和零偏置下的多数载流子电荷相称的地步；也就是说，直到达到高水平的注入。参数$I_K$和$I_KR$，因此，确定了偏置条件，即遇到高水平的注入。这两个参数分别被称为正向和反向的knee电流。
+
+总结一下，BJT的DC特性由11个模型参数决定：$I_S$，$B_F$，$B_R$，$C_2$，$n_{EL}$，$C_4$，$n_{CL}$，$V_A$，$V_B$，$I_K$，和$I_{KR}$。如果非理想的增益参数，$C_2$和$C_4$，是0，而$V_A$，$V_B$，$I_K$和$I_{KR}$是无穷的\footnote{因为$V_A$，$V_B$，$I_K$，和$I_{KR}$不能是0，所以这些参数的0值在SPICE程序中被解释为了无穷。}，那么简单的Ebers-Moll模型\cite{ref-78}就可以从(\ref{eq:A2.10} - \ref{eq:A2.11})获得。
+
+饱和电流，$I_S$，是一个基本的参数，直接与基极\cite{ref-84}的零偏多数载流子情况相关。参数$I_S$是正向区域中log($I_C$)关于$V_{BE}$的图，或者反向区域中log($I_E$)关于$V_{BC}$的图，的外插截距电流。实验上，$I_S$的评估通常来自$I_C$接近遵循理想指数特性的操作区域中的几个($I_C$,$V_{BE}$)点。
+
+正向电流增益，$\beta_F$，和反向电流增益，$\beta_R$，由下面的方程定义
+\begin{equation}
+    \beta_F = \frac{I_C}{I_B} V_{BE}>0，V_{BC}<0
+    \label{eq:A2.18}
+\end{equation}
+\begin{equation}
+    \beta_R = \frac{I_E}{I_B} V_{BE}<0，V_{BC}>0
+    \label{eq:A2.19}
+\end{equation}
+如果$C_2$和$C_4$是0，且$V_A$，$V_B$，$I_K$，和$I_{KR}$无穷，那么$\beta_F$等于$B_F$，而$\beta_R$等于$B_R$。对于这种情况，不论$\beta_F$还是$\beta_R$都不依赖于工作点。
+
+基极宽度调节\cite{ref-79}的二阶影响由$Q_B$中的$Q_1$部分建模。如果$V_A$是有限的，但是$V_B$，$I_K$，和$I_{KR}$是无限的，那么对于正向有源区，(\ref{eq:A2.10})得到下面的方程
+\begin{equation}
+    I_C = I_S exp(\frac{V_{BE}}{vt})[1-\frac{V_{BC}}{V_A}]
+    \label{eq:A2.20}
+\end{equation}
+小信号输出电导，$g_o$，由下面的方程决定
+\begin{equation}
+    g_o = \frac{\partial I_C}{\partial V_{CE}}|_{op} \widetilde{=} \frac{I_C}{V_A}
+    \label{eq:A2.21}
+\end{equation}
+方程(\ref{eq:A2.21})产生的结果是$g_o$与$I_C$成比例。因为对(\ref{eq:A2.16})中的$Q_1$的简化表示，真实器件表现出的输出电导稍微偏离(\ref{eq:A2.21})。然而，该基极宽度调制的简化模型对大多数的电路方程问题都是适用的。
+
+输出电导在一个特定的工作点上被评估，该工作点要不来自曲线光标测量，要不来自小信号测量。正向早期电压，$V_A$，随后通过(\ref{eq:A2.21})确定。反向早期电压，$V_B$，对于反向工作区扮演着类似的角色。然而，反向区域中的基极宽度调制效应通常对电路性能没什么影响，而参数$V_B$通常可以被忽略。
+
+BJT中的基极电流包含发射系数为1的理想部分，也包含发射系数典型从1.5到2的非理想部分。非理想基极电流来自耗尽层或者表面再结合\cite{ref-85}。(\ref{eq:A2.11})中的参数$C_2$和$n_{EL}$决定了正向区域中的非理想基极电流部分的相对幅度，而参数$C_4$和$n_{CL}$在反向区域中执行相同的功能。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.7.png}
+    \caption{正向有源区域中$log(I_C)$和$log(I_B)$关于$V_{BE}$的图像。}
+    \label{图A2.7}
+\end{figure}
+
+非理想基极电流部分的影响在图\ref{图A2.7}中展示。这里，log($I_C$)和log($I_B$)在正向区域被绘制为$V_{BE}$的函数。为了简便，串联电阻$r_b$和$r_e$的影响已经被忽略。集电极电流因此在2.3$V_t$的反向斜率下是理想的。基极电流是反向斜率2.3$v_t$的理想部分和反向斜率2.3$n_{EL}V_t$的非理想部分的和。对于小的$V_{BE}$值，基极电流中的非理想部分决定了整个基极电流。对于大的$V_{BE}$值，基极电流中的理想部分决定了整个基极电流。当集电极电流等于$I_L$时，这里$I_L$由下面的方程给出，非理想和理想基极电流区域之间的渐进断点就会发生
+\begin{equation}
+    I_L = I_S[C_2B_F]^{\frac{n_{EL}}{n_{EL}-1}}
+    \label{eq:A2.22}
+\end{equation}
+
+基极电流中非线性部分的最突出的影响是在低水平的集电极电流下，共射电流增益，$\beta_F$的下降。渐进地，如果集电极电流比$I_L$大，那么$\beta_F$在值$B_F$处就是常量。另一方面，随着集电极电流减到$I_L$以下，$\beta_F$会以1-1/$n_{EL}$的斜率减小。
+
+参数$C_2$和$n_{EL}$既不是由正向区域中的$log(I_B)$关于$V_{BE}$的图像决定，也不是从正向区域中的$log(\beta_F)$关于$log(I_C)$的图像中推导得来。参数$C_4$和$n_{EL}$在反向工作区中有着一样的角色。因为反向工作区的电流依赖和反向电流增益，$\beta_R$，的电流依赖，通常没有什么影响，所以参数$C_4$和$n_{EL}$一般可以被忽略。
+
+在较大的集电极电流值下，高水平的注入效应引起从理想Ebers-Moll特性\cite{ref-86}的显著偏离。knee电流$I_K$和$I_{KR}$决定了器件偏置的水平，即高水平注入变得显著的水平。如果$V_A$和$V_B$是无穷的，那么正向有源区中集电极电流由下面的方程决定
+\begin{equation}
+    I_C = \frac{I_Sexp(\frac{V_{BE}}{V_t})}{\frac{1}{2}[1+\sqrt{1+\frac{4I_S}{I_K}exp(\frac{V_{BE}}{V_t})}]}
+    \label{eq:A2.23}
+\end{equation}
+
+如果$I_C$比$I_K$小得多，那么(\ref{eq:A2.23})可以简化为下面的理想关系
+\begin{equation}
+    I_C = I_Sexp(\frac{V_{BE}}{V_t})
+    \label{eq:A2.24}
+\end{equation}
+另一方面，如果$I_C$比$I_K$大得多，那么集电极电流遵循下面的近似关系
+\begin{equation}
+    I_C \widetilde{=} = \sqrt{I_SI_K}exp(\frac{V_{BE}}{2V_t})
+    \label{eq:A2.25}
+\end{equation}
+(\ref{eq:A2.24})和(\ref{eq:A2.25})之间的对比得到的结果是集电极电流特性的有效发射系数从低水平注入的1变到高水平注入的2\cite{ref-86}。
+
+反向knee电流，$I_{KR}$，与反向工作区的$I_K$有着类似的角色。通常，反向工作中的高水平注入效应并不重要，所以参数$I_{KR}$通常可以被忽略。
+
+对于正向区域，BJT的DC特性在log($I_C$)和log($I_B$)关于$V_{BE}$的图中说明；这些图在图\ref{图A2.8}中给出。当集电极电流小于$I_K$时，集电极电流的近似行为，$I_C$，是理想的。当$I_C$超过$I_K$，高水平的注入会引起集电极电流发射系数从1到2的有效变化。基极电流，$I_B$，直到集电极电流超过$I_L$的值，不然在发射系数$n_{EL}$下一直是非理想的。对于$I_C$的值大于$I_L$的情况，基极电流是理想的。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.8.png}
+    \caption{正向有源区域中$log(I_C)$和$log(I_B)$关于$V_{BE}$的图像。}
+    \label{图A2.8}
+\end{figure}
+
+图\ref{图A2.8}中$I_B$曲线的弯曲是由于欧姆基极电阻，$r_b$。参数$r_b$是在特定的$I_B$值下从真实基极电流与理想指数的偏离评估来的。通常，发射极电阻，$r_e$，被忽略，而$r_e$的影响与$r_b$的影响被集总在了一起。集电极电阻，$r_c$，是在器件处于饱和区时测量的。因为$r_b$，$r_c$，和$r_e$都依赖偏置电流，所以这些参数的值应该在一系列典型工作点上取平均。对于$r_b$的值对电路性能关键的应用，$r_b$的值应该由更精确的方法决定\cite{ref-87}。
+
+log($\beta_F$)关于log($I_C$)的图在图\ref{图A2.9}中展示。电流增益，$\beta_F$，对于集电极电流大于$I_L$小于$I_K$的情况近似为常数。对于集电极电流小于$I_L$的情况，$\beta_F$以$1-1/n_{EL}$的斜率下降。对于集电极电流大于$I_K$的情况，$\beta_F$以-1的斜率下降。$\beta_F$对$I_C$的这种依赖，当然，是近似的关系。对于低水平影响和高水平影响重叠的情况，就像真实的对大多数BJT的那样，需要一些实验和误差来获得正确的参数。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.9.png}
+    \caption{正向有源区域中$log(\beta_F)$关于$log(I_C)$的图像。}
+    \label{图A2.9}
+\end{figure}
+
+\section{BJT电荷存储}
+BJT中的电荷存储通过线性的集电极衬底电容，$C_{CS}$，和两个非线性电荷元件$Q_{BE}$和$Q_{BC}$建模。现实情况中，集电极-衬底电容也是电压依赖的；然而，常数$C_{CS}$经常是一种合理的简化。如果$C_{CS}$是常数，那么BJT可以被当作一种三端器件，因为$C_{CS}$可以被直接返回到地。$C_{CS}$值的测定可以通过电容桥或者衬底掺杂和掩膜尺寸来估计。
+
+非线性电荷元件$Q_{BE}$和$Q_{BC}$由下面的方程决定
+\begin{equation}
+    Q_{BE} = \tau_FI_S[exp(\frac{V_{BE}}{V_t})-1]+C_{jeo}\int^{V_{BE}}_0[1-\frac{V}{\phi_e}]^{-m_e}
+    \label{eq:A2.26}
+\end{equation}
+\begin{equation}
+    Q_{BC} = \tau_RI_S[exp(\frac{V_{BC}}{V_t})-1]+C_{jco}\int^{V_{BC}}_0[1-\frac{V}{\phi_c}]^{-m_c}
+    \label{eq:A2.27}
+\end{equation}
+这些电荷存储元件可以等效地用下面的压控电容方程表示
+\begin{equation}
+    C_{BE} = \frac{\tau_FI_S}{V_t}exp(\frac{V_{BE}}{V_t}) + C_{jeo}[1-\frac{V_{BE}}{\phi_e}]^{-m_e}
+    \label{eq:A2.28}
+\end{equation}
+
+\begin{equation}
+    C_BC = \frac{\tau_RI_S}{V_t}exp(\frac{V_{BC}}{V_t}) + C_{jco}[1-\frac{V_{BC}}{\phi_C}]^{-m_c}
+    \label{eq:A2.29}
+\end{equation}
+电荷元件$Q_{BE}$和$Q_{BC}$对耗尽区中基于存储的电荷以及注入的少数载流子的电荷存储进行了建模。
+
+耗尽层的电荷存储由六个参数决定：$C_{jeo}$，$\phi_e$，$m_e$，$C_{jco}$，$\phi_c$，以及$m_c$。这些参数由电容桥在不同反向偏置值下对两个结的测量获得。典型地，结电势，$\phi_e$和$\phi_c$，在0.6-0.8 volts之间，而分级系数，$m_e$和$m_c$，对于硅器件，在0.3到0.5之间。
+
+注入的少数载流子基极电荷由(\ref{eq:A2.26}-\ref{eq:A2.29})中的指数项建模。该电荷存储机制通过模型参数$\tau_F$和$\tau_R$表征。正向转换时间，$\tau_F$，通常由共射截止频率，$f_T$，的测量决定。恢复时间测量典型地被用来评估反向转换时间，$\tau_R$。
+
+SPICE BJT模型的一个有趣的特征是注入基极电荷在(\ref{eq:A2.26}-\ref{eq:A2.29})中被建模地与它在(\ref{eq:A2.12})中的不同。例如，考虑正向有源区中的注入电荷。(\ref{eq:A2.26})中使用的正向注入电荷由下面的方程决定
+\begin{equation}
+    Q_F = \tau_FI_S[exp(\frac{V_{BE}}{V_t})-1]
+    \label{eq:A2.30}
+\end{equation}
+然而，(\ref{eq:A2.12})中的正向注入电荷由下面的方程建模
+\begin{equation}
+    \hat{Q}_F = \frac{\hat{\tau}_FI_S}{Q_B}[exp(\frac{V_{BE}}{V_t})-1]
+    \label{eq:A2.31}
+\end{equation}
+这里$\hat{\tau}_F = Q_{BO}/I_K$，而$Q_{BO}$是零偏基极电荷。
+
+(\ref{eq:A2.30})和(\ref{eq:A2.31})之间的差别是SPICE BJT模型的基础。在(\ref{eq:A2.26})中选择采用(\ref{eq:A2.30})的理由是基于下面方程定义的有效转换时间
+\begin{equation}
+    \tau_F(eff) = \frac{\partial Q_B}{\partial I_C}|_{op}
+    \label{eq:A2.32}
+\end{equation}
+方程(\ref{eq:A2.32})当然只在正向有源区中有效。如果BJT的外部欧姆电阻被忽略，那么$f_T$通过下面的方程能与有效转换时间建立关系
+\begin{equation}
+    f_T = \frac{1}{2\pi \tau_F(eff)}
+    \label{eq:A2.33}
+\end{equation}
+
+物理上，$Q_{BE}$和$Q_{BC}$应该被这样选择
+\begin{equation}
+    Q_B = 1 + \frac{Q_{BE}+Q_{BC}}{Q_{BO}}
+    \label{eq:A2.34}
+\end{equation}
+方程(\ref{eq:A2.34})是电荷中性的一种简单表示。如果$Q_{BE}$和$Q_{BC}$被选择得使得(\ref{eq:A2.34})被满足，而且如果忽略耗尽层电荷存储，那么可以证明$\tau_F(eff)$是个常数并且等于模型参数$\tau_F$。
+
+有效转换时间，然而，不是与偏置无关的。特别地，高水平的注入影响倾向于增加有效转换时间\cite{ref-88,ref-89}的值，而增加的耗尽层宽度倾向于减少有效转换时间\cite{ref-79}的值。这两种效应，在一阶情况下\footnote{原文为to first order，不知道其意思}，由下面的假设解释
+\begin{equation}
+    \tau_F(eff) = \tau_FQ_B
+    \label{eq:A2.35}
+\end{equation}
+把(\ref{eq:A2.35})代入(\ref{eq:A2.31})得到(\ref{eq:A2.30})；因此，(\ref{eq:A2.26}-\ref{eq:A2.29})隐式地包含了(\ref{eq:A2.35})定义的假设。SPICE BJT模型，因此，含有依赖于偏置的转换时间的一阶表示。
+
+为了说明有效转换时间对偏置的依赖，考虑正向有源工作的情况。如果$I_C$比$I_K$大得多，那么$Q_B$正比于$I_C$。因此，$\tau_F(eff)$正比于$I_C$，而排除耗尽层电荷存储的话，SPICE BJT模型预测$f_T$会反比于$I_C$。另一方面，有效转换时间是常数，并且等于$\tau_F$，如果$I_C$比$I_K$小的多，如果耗尽层电荷存储和基极宽度调制效应被忽略。
+
+有效转换时间因为基极宽度调整\cite{ref-79}也依赖于集电极偏置(在正向有源区工作)。有效转换时间对耗尽层宽度的依赖由SPICE BJT模型中的$Q_B$中的$Q_1$部分负责。如果BJT被偏置在正向有源区，那么较大的集电极电压会导致较小的$Q_B$的值，并且，因此，带来较小的有效转换时间的值。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.10.png}
+    \caption{正向有源区中$log(f_T)$关于$log(I_C)$的图像。}
+    \label{图A2.10}
+\end{figure}
+
+$f_T$对偏置的依赖在图\ref{图A2.10}中进行了说明。该图展示了两个$V_{CE}(V_{CE1}>V_{CE2})$下的log($f_T$)关于log($I_C$)的图像。$f_T$的值在(\ref{eq:A2.33})中给出，这里$\tau_F(eff)$由下面的近似方程给出
+\begin{equation}
+    \tau_F(eff) = \tau_FQ_B + \frac{V_t}{I_C}\{\frac{C_{jeo}}{[1-\frac{V_{BE}}{\phi_e}]^{m_e}} + \frac{C_{jco}}{[1-\frac{V_{BC}}{\phi_c}]^{m_c}}\}
+    \label{eq:A2.36}
+\end{equation}
+
+在$I_C$远大于$I_K$的偏置水平，$f_T$反比于$I_C$，正如简单理论\cite{ref-88}预测的那样。在低水平偏置下，$f_T$直接正比于$I_C$。这种依赖是(\ref{eq:A2.36})中耗尽电容项的直接结果。对于给定的$I_C$值，$f_T$随着$V_{CE}$增加而增加。$f_T$中的这种增加来自有效转换时间的减少和集电极耗尽电容的减少。参数$\tau_F$，因此，在$I_C << I_K$的偏置水平下，由$f_T$的测量评估。而且，$\tau_F$是在耗尽层电容和基极宽度调制参与后由$f_T$测量确定的。
+
+\section{小信号BJT模型}
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.11.png}
+    \caption{线性化的，小信号BJT模型。}
+    \label{图A2.11}
+\end{figure}
+
+BJT的线性化模型是熟悉的混合$\pi$模型\cite{ref-4}，如图\ref{图A2.11}所示。四个电导$g_{\pi}$，$g_{\mu}$，$g_o$，和$g_m$通过下面的方程与(\ref{eq:A2.10}-\ref{eq:A2.11})的导数相关。
+\begin{equation}
+    g_{\pi} = \frac{\partial I_B}{\partial V_{BE}}|_{op}
+    \label{eq:A2.37}
+\end{equation}
+
+\begin{equation}
+    g_{\mu} = \frac{\partial I_B}{\partial V_{BE}}|_{op}
+    \label{eq:A2.38}
+\end{equation}
+
+\begin{equation}
+    g_o = -\frac{\partial I_C}{\partial V_{BC}}|_{op} - \frac{\partial I_B}{\partial V_{BC}}|_{op}
+    \label{eq:A2.39}
+\end{equation}
+
+\begin{equation}
+    g_m = \frac{\partial I_C}{\partial V_{BE}}|_{op} + \frac{\partial I_C}{\partial V_{BC}}|_{op} + \frac{\partial I_B}{\partial V_{BC}}|_{op}
+    \label{eq:A2.40}
+\end{equation}
+
+电容$C_{\pi}$等于(\ref{eq:A2.28})中的电容$C_{BE}$，而电容$C_{\mu}$等于(\ref{eq:A2.29})中的电容$C_{BC}$。
+
+除了打印出混合$\pi$模型参数，SPICE也计算和打印$\beta_{DC}$，$\beta_{AC}$和$f_{T}$这些由下面的方程决定的值
+\begin{equation}
+    \beta_{DC} = \frac{I_C}{I_B}|_{op}
+    \label{eq:A2.41}
+\end{equation}
+
+\begin{equation}
+    \beta_{AC} = \frac{\partial I_C}{\partial I_B}|_{op} = g_mr_{\pi}
+    \label{eq:A2.42}
+\end{equation}
+
+\begin{equation}
+    f_T = \frac{g_m}{2\pi(C_{\pi}+C_{\mu})}|_{op}
+    \label{eq:A2.43}
+\end{equation}
+
+\section{JFET模型}
+n沟道JFET的SPICE模型的原理在图\ref{图A2.12}中所示。对于p沟道器件，端口电压$V_{GD}$，$V_{GS}$，和$V_{DS}$必须被反转，两个门结的方向必须被反转，非线性电流源$I_D$的方向也必须被反转。JFET的漏和源区的欧姆电阻由两个线性电阻$r_d$和$r_s$建模。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.12.png}
+    \caption{SPICE JFET模型。}
+    \label{图A2.12}
+\end{figure}
+
+JFET的DC特性通过非线性电流源$I_D$表征。$I_D$的值由下面的方程决定：
+\begin{equation}
+    V_{DS} > 0 (正向区域) \\
+    I_D = \left\{\begin{matrix}
+0 &V_{GS}-V_{TO}<0  \\
+\beta(V_{GS}-V_{TO})^2(1+\lambda V_{DS}) &0<V_{GS}-V_{TO}<V_{DS}  \\
+\beta V_{DS}[2(V_{GS}-V_{TO})-V_{DS}](1+\lambda V_{DS}) &0<V_{DS}<V_{GS}-V_{TO}  \\
+\end{matrix}\right.
+\label{eq:A2.44}
+\end{equation}
+
+\begin{equation}
+    V_{DS} < 0 (反向区域) \\
+    I_D = \left\{\begin{matrix}
+0 &V_{GD}-V_{TO}<0  \\
+-\beta(V_{GD}-V_{TO})^2(1-\lambda V_{DS}) &0<V_{GD}-V_{TO}<-V_{DS}  \\
+\beta V_{DS}[2(V_{GD}-V_{TO})+V_{DS}](1-\lambda V_{DS}) &0<-V_{DS}<V_{GD}-V_{TO}  \\
+\end{matrix}\right.
+\label{eq:A2.45}
+\end{equation}
+
+在SPICE中，漏电流由一种简单的“二次定律”特征建模，参数$V_{TO}$和$\beta$决定该特征。SPICE中的惯例是对所有JFET的，不论极性，$V_{TO}$都为负。参数$V_{TO}$和$\beta$通常从$\sqrt{I_D}$关于$V_{GS}$的图中求出。对于n沟道器件，示例图如图\ref{图A2.13}所示。参数$V_{TO}$是该图的x轴截距，而参数$\beta$是$\sqrt{I_D}$关于$V_{GS}$特性的斜率。JFET的一个标准品质因数是零$V_{GS}$偏置下的漏电流。该参数通过下面的方程与$V_{TO}$和$\beta$相关联
+\begin{equation}
+    I_{DSS} = \beta V^2_{TO}
+    \label{eq:A2.46}
+\end{equation}
+
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.13.png}
+    \caption{典型JFET漏电流特性。}
+    \label{图A2.13}
+\end{figure}
+
+参数$\lambda$决定了JFET特性中的沟道长度调制效应。器件的输出电导，在正向饱和区，由下面给出
+\begin{equation}
+    g_{DS}(sat) = \beta \lambda(V_{GS} - V_{TO})^2 \widetilde{=} \lambda I_D
+    \label{eq:A2.47}
+\end{equation}
+因此，JFET的饱和电导直接正比于漏电流。参数$\lambda$因此在JFET特性中有着参数$V_A$在BJT中有的相同的角色。
+
+图\ref{图A2.12}中所示的两个二极管由下面的理想二级管方程建模
+\begin{equation}
+    I_{GD} = I_S[exp(\frac{V_{GD}}{V_t})-1]
+    \label{eq:A2.48}
+\end{equation}
+
+\begin{equation}
+    I_{GS} = I_S[exp(\frac{V_{GS}}{V_t})-1]
+    \label{eq:A2.49}
+\end{equation}
+饱和电流，$I_S$，是一个JFET模型参数。因为JFET的在两个门结反向偏置时正常工作，所以$I_S$应该被选择得与门结漏电流的观测值相对应。
+
+\section{JFET电荷存储}
+JFET中的电荷存储发生在两个门结中。这种电荷存储由非线性元件$Q_{GS}$和$Q_{GD}$建模。因为没有哪个门结正常是正向偏置的，所以这些结的注入电荷存储被忽略了。元件$Q_{GS}$和$Q_{GD}$由下面的方程定义
+\begin{equation}
+    Q_{GS} = C_{GSO}\int^{V_{GS}}_0 [1-\frac{V}{\phi_B}]^{-1/2}dV
+    \label{eq:A2.50}
+\end{equation}
+
+\begin{equation}
+    Q_{GD} = C_{GDO}\int^{V_{GD}}_0 [1-\frac{V}{\phi_B}]^{-1/2}dV
+    \label{eq:A2.51}
+\end{equation}
+或者，这两个电荷可以用压控电容来表示，压控电容的值由下面的方程决定
+\begin{equation}
+    C_{GS} = C_{GSO}[1-\frac{V_{GS}}{\phi_B}]^{-1/2}
+    \label{eq:A2.52}
+\end{equation}
+
+\begin{equation}
+    C_{GD} = C_{GDO}[1-\frac{V_{GD}}{\phi_B}]^{-1/2}
+    \label{eq:A2.53}
+\end{equation}
+$C_{GSO}$，$C_{GDO}$，和$\phi_B$的值由不同反向偏置值下的电容桥测量决定。
+
+\section{小信号JFET模型}
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.14.png}
+    \caption{线性化的，小信号JFET模型。}
+    \label{图A2.14}
+\end{figure}
+
+JFET的小信号线性化模型在图\ref{图A2.14}中给出。电导$g_{gs}$和$g_{gd}$是两个门结的电导。因为没有哪个门结在正常工作中是正向偏置的，所以$g_{gs}$和$g_{gd}$通常都非常小。跨导，$g_m$，和输出电导，$g_{ds}$，由下面的方程定义
+\begin{equation}
+    g_m = \frac{\partial I_D}{\partial V_{GS}}|_{op}
+    \label{eq:A2.54}
+\end{equation}
+
+\begin{equation}
+    g_{ds} = \frac{\partial I_D}{\partial V_{DS}}|_{op}
+    \label{eq:A2.55}
+\end{equation}
+电容$C_{GS}$和$C_{GD}$在(\ref{eq:A2.52}-\ref{eq:A2.53})中定义。
+
+\section{MOSFET模型}
+SPICE中实现的MOSFET模型在图\ref{图A2.15}中展示，图中是一个n沟道MOSFET。该模型适用于任何绝缘栅FET(IGFET)，包括，当然，硅栅IGFET的。对于p沟道器件，五个端口电压($V_{GS}$，$V_{GD}$，$V_{DS}$，$V_{BS}$，和$V_{BD}$)，两个衬底结，以及非线性电流源$I_D$的极性是反的。为了避免与标记为S的源节点混淆，衬底节点被标记为B(出于bulk或者body)。该器件漏和源区域的欧姆电阻由两个线性电阻$r_d$和$r_s$建模。
+
+\section{小信号JFET模型}
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.15.png}
+    \caption{SPICE MOSFET模型。}
+    \label{图A2.15}
+\end{figure}
+
+该MOSFET的DC特性由非线性电流源$I_D$决定。在SPICE中，$I_D$的值从Shichman和Hodges\cite{ref-90}提出的方程获得。这些方程是：
+\begin{equation}
+    V_{DS}>0 (正向区域)
+    V_{TE} = V_{TO} + \gamma[\sqrt{\phi-V_{BS}}-\sqrt{\phi}]
+    \label{eq:A2.56}
+\end{equation}
+
+\begin{equation}
+    I_D = \left\{\begin{matrix}
+0 &V_{GS}-V_{TE}<0  \\
+\beta(V_{GS}-V_{TE})^2(1+\lambda V_{DS}) &0<V_{GS}-V_{TE}<V_{DS}  \\
+\beta V_{DS}[2(V_{GS}-V_{TE})-V_{DS}](1+\lambda V_{DS}) &0<V_{DS}<V_{GS}-V_{TE}  \\
+\end{matrix}\right.
+\label{eq:A2.57}
+\end{equation}
+
+\begin{equation}
+    V_{DS}<0 (向区域)
+    V_{TE} = V_{TO} + \gamma[\sqrt{\phi-V_{BD}}-\sqrt{\phi}]
+    \label{eq:A2.58}
+\end{equation}
+
+\begin{equation}
+    I_D = \left\{\begin{matrix}
+0 &V_{GD}-V_{TE}<0  \\
+-\beta(V_{GD}-V_{TE})^2(1-\lambda V_{DS}) &0<V_{GD}-V_{TE}<-V_{DS}  \\
+\beta V_{DS}[2(V_{GD}-V_{TE})+V_{DS}](1-\lambda V_{DS}) &0<-V_{DS}<V_{GD}-V_{TE}  \\
+\end{matrix}\right.
+\label{eq:A2.59}
+\end{equation}
+
+Shichman-Hodges模型提供了IGFET的DC特性的一种好的一阶表征。在Shichman和Hodges的文章之后，几个更精确和更复杂的模型已经被提出\cite{ref-91}-\cite{ref-94}。
+
+漏电流方程由五个模型参数，$V_{TO}$，$\beta$，$\lambda$，$\gamma$，和$\phi$，决定。除了对阈值电压，$V_{TO}$\footnote{原文中为$V_{TE}$}，的电压依赖，MOSFET的漏电流用JFET中使用的同样的“二次定律”近似表征。在SPICE中，不论沟道极性如何，阈值电压，$V_{TO}$，对增强型器件是正的，而对耗尽型器件是负的。对于工作在正向区域中$V_{BS}=0$的n沟道器件的情况，参数$V_{TO}$是沟道开始导通时的$V_{GS}$的值。对于工作在正向区域中$V_{BS}=0$的p沟道器件的互补情况，$V_{TO}$是沟道开始导通时的$V_{GS}$的值的负数。
+
+对于$V_{DS}$值小的情况，参数$\beta$由正向区域中的$\sqrt{I_D}$关于$V_{GS}$的图决定。参数$\lambda$可以用与BJT的和JFET的相同的方式从$I_D$关于$V_DS$的曲线的定位测量中获得。
+
+n沟道器件的有效阈值电压在正向区域中作为$V_{BS}$的函数的图像如图\ref{图A2.16}。该图展示了有效阈值电压随着$V_{BS}$变得更负(对于p沟道器件是更正)会增加。$V_{TE}$对衬底偏置的依赖由参数$\gamma$决定，而$\gamma$是从$\sqrt{V_{TE}}$关于$V_{BS}$的图像中评估的。对于典型的IGFET的，$\gamma$是0.5-1.5，而$\phi$是0.4-0.8 volts。
+
+\section{小信号JFET模型}
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.16.png}
+    \caption{N沟道器件有效阈值电压关于$V_{BS}$的图像。}
+    \label{图A2.16}
+\end{figure}
+
+两个衬底结由理想的二极管方程建模
+\begin{equation}
+    I_{BS} = I_S[exp(\frac{V_{BS}}{V_t})-1]
+    \label{eq:A2.60}
+\end{equation}
+
+\begin{equation}
+    I_{BD} = I_S[exp(\frac{V_{BD}}{V_t})-1]
+    \label{eq:A2.61}
+\end{equation}
+
+饱和电流，$I_S$，是模型参数。因为没有哪个衬底结正常是正向偏置的，所以$I_S$的值应该被选来对衬底结的漏电特征建模。
+
+\section{MOSFET电荷存储}
+MOSFET门区域的电荷存储由三种常量电容$C_{GS}$，$C_{GD}$，和$C_{GB}$建模。实际上，这些电容都是压控的，所以在分配$C_{GS}$，$C_{GD}$，和$C_{GB}$的值时要留心。一种近似方法是确定整体的二极管电容(从掩模版维度和氧化层厚度)并把该电容在$C_{GS}$和$C_{GD}$之间均匀切分。对于静态MOS电路\cite{ref-90}，该方法是一种好的近似。而对于其他情况，在这三种电容之间均匀切分整个电容会更合适。
+
+两个衬底结的电荷存储用非线性电荷$Q_{BD}$和$Q_{BS}$来建模。这些电荷通过下面的方程确定
+\begin{equation}
+    Q_{BD} = C_{BDO}\int^{V_{BD}}_0[1-\frac{V}{\phi_B}^{-1/2}]dV
+    \label{eq:A2.62}
+\end{equation}
+
+\begin{equation}
+    Q_{BS} = C_{BSO}\int^{V_{BS}}_0[1-\frac{V}{\phi_B}]^{-1/2}dV
+    \label{eq:A2.63}
+\end{equation}
+衬底结中注入的电荷存储被忽略，因为衬底结正常是反向偏置的。两个电荷元件$Q_{BD}$和$Q_{BS}$可以等效地被表示为压控电容$C_{BD}$和$C_{BS}$，它们的值由下面的方程决定
+\begin{equation}
+    C_{BD} = C_{BDO}[1-\frac{V_{BD}}{\phi_B}]^{-1/2}
+    \label{eq:A2.64}
+\end{equation}
+
+\begin{equation}
+    C_{BS} = C_{BSO}[1-\frac{V_{BS}}{\phi_B}]^{-1/2}
+    \label{eq:A2.65}
+\end{equation}
+$C_{BDO}$，$C_{BSO}$，和$\phi_B$的值要不根据电容桥测量，要不根据掩模版维度和衬底掺杂信息来决定。
+
+\section{小信号MOSFET模型}
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.17.png}
+    \caption{线性化的小信号MOSFET模型。}
+    \label{图A2.17}
+\end{figure}
+
+MOSFET的线性化小信号模型在图\ref{图A2.17}中展示。电导$g_{bd}$和$g_{bs}$是这两个衬底结的等效电导。因为这些结在正常工作中都是反向偏置的，所以电导$g_{bd}$和$g_{bs}$典型非常小。电导$g_m$，$g_ds$，和$g_{mbs}$由下面的方程给出
+\begin{equation}
+    g_m = \frac{\partial I_D}{\partial V_{GS}}|_{op}
+    \label{eq:A2.66}
+\end{equation}
+\begin{equation}
+    g_{ds} = \frac{\partial I_D}{\partial V_{DS}}|_{op}
+    \label{eq:A2.67}
+\end{equation}
+
+\begin{equation}
+    g_{mbs} = \frac{\partial I_D}{\partial V_{BS}}|_{op}
+    \label{eq:A2.68}
+\end{equation}
+电容$C_{BS}$和$C_{BD}$由(\ref{eq:A2.64}-\ref{eq:A2.65})决定。
+
+\section{噪声模型}
+SPICE的AC分析部分含有评估电子电路噪声特性的能力。电路中的每一个电阻都会产生热噪声，而电路中的每一个半导体器件除了该器件的欧姆电阻产生的热噪声外还会产生散粒(shot)噪声和闪烁(flicker)噪声。
+
+一个电路元件产生的噪声可以被建模为小信号电路的电气激励。电路中的每一处噪声源与电路中的其他噪声源是统计无关的。在一个特定输出中电路中每处噪声源对整体噪声的贡献分开确定。整体噪声随后是各个噪声贡献的RMS和。
+
+噪声因为噪声带宽的不同而不同，单位是$volts/\sqrt{Hz}$或者$amps/\sqrt{Hz}$。电路的输出噪声是输出端噪声的RMS水平除以带宽的平方根。等效输入噪声是输出噪声除以输出关于特定输入的传输函数。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.18.png}
+    \caption{电阻的噪声模型。}
+    \label{图A2.18}
+\end{figure}
+
+电阻产生的热噪声通过一个独立电流源$i_{nR}$与该电阻并联来建模，如图\ref{图A2.18}所示。$i_{nR}$的值由下面的方程决定
+\begin{equation}
+    i_{nR} = \sqrt{\frac{4kT}{R}}
+    \label{eq:A2.69}
+\end{equation}
+这里k是Boltzmann常数，而T是绝对温度，单位是Kelvin。$i_{nR}$的单位是$a/\sqrt{Hz}$。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.19.png}
+    \caption{二极管的噪声模型。}
+    \label{图A2.19}
+\end{figure}
+
+二极管的噪声模型在图\ref{图A2.19}中展示。二极管欧姆区域的热电阻的产生通过电流源$i_{nr_s}$确定，而$i_{nr_s}$的值由(\ref{eq:A2.69})确定。二极管的散粒和闪烁噪声由电流源$i_{nD}$建模，其值由下面的方程定义
+\begin{equation}
+    i_{nD} = \sqrt{2qI_D + \frac{K_fI^{a_f}_D}{f}}
+    \label{eq:A2.70}
+\end{equation}
+模型参数$K_f$和$a_f$由低频下对二极管噪声的测量评估。对于硅二极管，这些参数的典型值是$K_f=10^{-16}$和$a_f=1$。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.20.png}
+    \caption{BJT的噪声模型。}
+    \label{图A2.20}
+\end{figure}
+
+BJT的噪声模型在图\ref{图A2.20}中给出。BJT三个欧姆区中热噪声的产生由电流源$i_{nr_c}$，$i_{nr_b}$，和$i_{nr_e}$建模；这三个源由(\ref{eq:A2.69})决定。散粒噪声和闪烁噪声由两个源$i_{nC}$和$i_{nB}$决定，它们反过来由下面的方程定义
+\begin{equation}
+    i_{nC} = \sqrt{2qI_C}
+    \label{eq:A2.71}
+\end{equation}
+
+\begin{equation}
+    i_{nB} = \sqrt{2qI_B + \frac{K_fI^{a_f}_B}{f}}
+    \label{eq:A2.72}
+\end{equation}
+再一次，模型参数$K_f$和$a_f$控制着器件的闪烁噪声特性。在一个741运算放大器\cite{ref-9}中，这些器件的表征为，npn输入器件的相关值是$K_f = 6.6\times10^{-16}$和$a_f = 1$。该电路中pnp输入器件由$K_f = 3.0\times10^{-12}$和$a_f = 1.5$表征。$K_f$的值对于$I_B$是以amps为单位，对于频率是以Hertz为单位。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.21.png}
+    \caption{JFET的噪声模型。}
+    \label{图A2.21}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A2/图A2.22.png}
+    \caption{MOSFET的噪声模型。}
+    \label{图A2.22}
+\end{figure}
+
+JFET和MOSFET噪声模型在图\ref{图A2.21}和图\ref{图A2.22}中分别给出。FET的漏和源区中热噪声的产生通过两个源$i_{r_d}$和$i_{r_s}$建模。这些源的值由(\ref{eq:A2.69})决定。散粒和闪烁噪声通过以下方程定义的电流源$i_{nD}$建模
+\begin{equation}
+    i_{nD} = \sqrt{\frac{8kTg_m}{3} + \frac{K_fI^{a_f}_D}{f}}
+    \label{eq:A2.73}
+\end{equation}
+这里$g_m$是FET的小信号跨导。参数$K_f$和$a_f$决定FET的闪烁噪声特性。这些参数的典型值是$K_f = 10^{-14}$和$a_f = 1$\cite{ref-95}。
+
+\section{结饱和电流的温度依赖}
+二极管，BJT，和JFET的门结，以及MOSFET的衬底结的饱和电流根据如下方程随着温度变化
+\begin{equation}
+    \frac{I_S(T_1)}{I_S(T_2)} = (\frac{T_1}{T_2})^{P_T}exp{\frac{q\varepsilon_g}{kT_1}[\frac{T_1}{T_2}-1]}
+    \label{eq:A2.74}
+\end{equation}
+对于JFET和MOSFET模型，参数$\varepsilon_g$的值固定在1.11，而参数$p_T$的值固定在3。对于硅二极管和硅BJT的，$\varepsilon_g$典型值是1.11，$p_T$典型值是3。对于Schottky-Barrier二极管，$\varepsilon_g$典型值是0.69(对于Al-Si载流子)，$p_T$典型值是2。
+
+\section{计算考量}
+为了辅助收敛，给电路中每个结插入一个并行的电导。该电导的值，$GMIN$，是用户可以设置的一个程序参数。GMIN的默认值是$10^{-12}$mhos。
+
+在四种半导体模型中与结相关的指数项通过一个反向偏置的线性函数来近似。特别地，拓展项
+\begin{equation}
+    exp(-a) \widetilde{=} 1-a
+    \label{eq:A2.75}
+\end{equation}
+被用来在负参数下评估所有的指数型。
+
+四种半导体模型中的耗尽层电容方程具有如下形式
+\begin{equation}
+    C = C_0[1-\frac{V}{\phi}]^{-n}
+    \label{eq:A2.76}
+\end{equation}
+如果$V$是正的，(\ref{eq:A2.76})会变得数值不稳定。因此，如果$V$是正的，(\ref{eq:A2.76})由下面的方程近似
+\begin{equation}
+    C = C_0[1 + \frac{nV}{\phi}]
+    \label{eq:A2.77}
+\end{equation}

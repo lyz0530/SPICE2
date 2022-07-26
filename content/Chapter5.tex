@@ -1,0 +1,482 @@
+\chapter{非线性分析方法}
+\label{chap:5}
+如果电路包含非线性元件，那么电路的DC分析和瞬态分析需要求解如下形式的非线性代数方程方法
+\begin{equation}
+    G(x)=0
+    \label{eq:5.1}
+\end{equation}
+这里x是未知的电路变量向量。对于DC分析，通过假定所有X的时间导数都是常数，电路方程系统被简化为(\ref{eq:5.1})的形式。对于瞬态分析的情况，数值积分算法在每一个时间点会把微分电路方程约减为形如(\ref{eq:5.1})的代数方程系统。
+
+非线性求解算法通过对线性化方程迭代求解确定非线性方程系统的解。每次迭代中方程线性化的方法由使用的特定的非线性求解方法决定。一旦建立了线性化的方程系统，通过诸如高斯消去或者LU分解的线性求解方法即可得到每次迭代的解。
+
+在电路仿真程序中，非线性求解方法被用在两种完全不同的问题上。第一个，这种方法被用来确定电路的DC工作点。对于这种情况，不需要对解有假定的先验知识，而且迭代过程必须从一个初始“猜测”开始，而这个“猜测”有时候是正确解的一个非常糟糕的近似。另外，算法收敛到解失效是灾难性的。因此，DC工作点的算法必须，作为优先级最高的，有可靠的收敛特性。收敛要求的迭代次数是第二重要的。
+
+非线性求解方法的第二个应用是多点瞬态和DC分析。在多点瞬态分析中，前一个点处的解通常是当前解的一个好的估计。而且，在多点分析中收敛失败不是灾难性的。在瞬态分析中，例如，如果一个时间点没有收敛，那么时间步长通常会被减小直到解收敛。这种时间步长减少在分析中通常对把截断误差保持在一个合理水平是必要的。
+
+虽然在多点分析中每个解需要很少的迭代（典型是2或者3次），但是经常要计算很多点（几百个，例如）。因此，在分析中收敛到每个点要求的迭代次数比DC工作点求解中要求的更重要。所以，收敛率对于多点分析来说比收敛可靠性还要重要。
+
+本章从介绍两种熟悉的非线性求解方法开始：Newton-Raphson算法和Secant方法。接下来，会给出在电路仿真程序中Newton-Raphson算法的实现。决定Newton迭代什么时候收敛的标准会被考虑到。数值溢出和不收敛的问题会被详细介绍，而规避这些问题的实际办法会被比较。
+
+最后，提高Newton-Raphson算法效率的方法会被介绍。在瞬态分析中的每个时间点上提高初始“猜测”的预测方法，或者多点DC分析，会被提出。避免再次计算与前次迭代求解相比变化不大的非线性函数的旁路算法也会被介绍。
+
+\section{Newton-Raphson算法}
+大多数电路仿真程序使用一些修正的Newton-Raphson算法来确定非线性代数方程系统的解。如果$x_k$是第k步迭代处的解，$\delta x_k$是$x_k$和准确解之间的误差，那么k+1迭代的解，$x_{k+1}$，就会被如下选择
+\begin{equation}
+    x_{k+1}=x_{k}+\delta x_{k}
+    \label{eq:5.2}
+\end{equation}
+如果误差$\delta x_k$很小，那么(\ref{eq:5.1})的解在迭代值$x_{k+1}$处就可以用Taylor级数展开得到
+\begin{equation}
+    G(x_{k+1})=G(x_k+\delta x_k) \widetilde{=} G(x_k) + J(x_k)\delta x_k = 0
+    \label{eq:5.3}
+\end{equation}
+如果(\ref{eq:5.1})包含n个方程，也就是，
+\begin{equation}
+    G(x) = [g_1(x),g_2(x),\dots,g_n(x)]^T
+    \label{eq:5.4}
+\end{equation}
+那么Jacobi矩阵，$J(x_k)$，被定义如下
+\begin{equation}
+    J(x_k)=\begin{pmatrix}
+\frac{\partial g_1}{\partial x_1}|_{x_k} & \frac{\partial g_1}{\partial x_2}|_{x_k} & \dots  &  \frac{\partial g_1}{\partial x_n}|_{x_k}\\
+ \vdots &  &  & \vdots  \\
+ \frac{\partial g_n}{\partial x_1}|_{x_k}& \frac{\partial g_n}{\partial x_2}|_{x_k} & \dots &  \frac{\partial g_n}{\partial x_n}|_{x_k}\\
+\end{pmatrix}
+\label{eq:5.5}
+\end{equation}
+方程(\ref{eq:5.2})和(\ref{eq:5.3})结合起来可以得到
+\begin{equation}
+    J(x_k)x_{k+1} = -G(x_k) - J(x_k)x_k
+    \label{eq:5.6}
+\end{equation}
+方程(\ref{eq:5.6})是线性化的方程系统，可以用高斯消去或者LU分解技术求解。
+
+Newton序列从起始点$x_0$开始。函数$G(x_0)$和Jacob $J(x_0)$随后会被评估，而为了获得$x_1$，(\ref{eq:5.6})将被建立和求解。这个过程会一直持续直到$x_k$和$x_{k+1}$的值在一些误差容许内达到一致。
+
+非线性求解算法的收敛率决定收敛到特定容限内要求的迭代次数。不幸地是，收敛率只能在正确解的领域内才能被决定。可以证明，如果$x_k$最够靠近准确解，那么，对于Newton-Raphson方法\cite{ref-49}
+\begin{equation}
+    \delta x_{k+1} = C(\delta x_k)^2
+    \label{eq:5.7}
+\end{equation}
+这里C依赖于方程的更高阶导数。简而言之，Newton-Raphson方法有着二次方收敛率；也就是，每次迭代处的误差正比于前一次迭代处的误差的平方。
+
+\section{用Newton-Raphson算法进行支路线性化}
+方程(\ref{eq:5.6})的线性化系统可以在不把其非线性方程格式化为(\ref{eq:5.1})的形式就能被组建得到。在计算上，单独线性化每一个支路关系要更高效地多\cite{ref-37,ref-38}。线性化方程的合成系统随后会用线性电路方程被构建的方式构建。
+
+电路中的每一条支路关系都可以用同样的Taylor级数方法线性化。对一条电流定义的支路，支路关系具有如下形式
+\begin{equation}
+    I = f(x)
+    \label{eq:5.8}
+\end{equation}
+用Taylor级数展开(\ref{eq:5.8})得到支路关系如下
+\begin{equation}
+    I(x_{k+1})=\frac{\partial f}{\partial x}|_{x_k}x_{k+1} + [f(x_k)-\frac{\partial f}{\partial x}|_{x_k}x_{k}]
+    \label{eq:5.9}
+\end{equation}
+这里
+\begin{equation}
+    \frac{\partial f}{\partial x}|_{x_k} = [\frac{\partial f}{\partial x_1}|_{x_k},\frac{\partial f}{\partial x_2}|_{x_k},\dots,\frac{\partial f}{\partial x_n}|_{x_k}]
+    \label{eq:5.10}
+\end{equation}
+
+如果支路关系是电流定义的，并且只依赖它自己的支路电压，那么(\ref{eq:5.9})和(\ref{eq:5.10})给出的线性化步骤就等价于在每一次迭代，用一个线性电导并联一个独立电流源来代替非线性支路。这种等效如图\ref{图5.1}所示。该非线性元件在概念上被用电导$g_{eq}$和电流源$I_{eq}$取代。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.1.png}
+    \caption{电流定义支路的支路线性化。}
+    \label{图5.1}
+\end{figure}
+
+对于电压定义支路的对偶情形，支路关系有如下形式
+\begin{equation}
+    V = f(x)
+    \label{eq:5.11}
+\end{equation}
+该电压定义支路的线性化支路关系是
+\begin{equation}
+    V(x_{k+1}) = \frac{\partial f}{\partial x}|_{x_k}x_{k+1} + [f(x_k)-\frac{\partial f}{\partial x}|_{x_k}x_k]
+    \label{eq:5.12}
+\end{equation}
+
+如果电压定义支路关系只取决于它自己的支路电流，那么线性化步骤就等价于在每次迭代，用一个线性电阻串联一个独立电压源取代该非线性支路。这种对偶替换如图\ref{图5.2}所示。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.2.png}
+    \caption{电压定义支路的支路线性化。}
+    \label{图5.2}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.3.png}
+    \caption{(a)二极管电路示例；(b)线性化电路。}
+    \label{图5.3}
+\end{figure}
+作为一个例子，考虑图\ref{图5.3}a中的二极管电路。该二极管用理想二极管支路关系\footnote{参数$V_t$是热电压，并且等于$kT/q$，这里k是Boltzmann常数，T是绝对温度，单位为Kelvin，而q是电子电荷。$V_t$在室温时大概是25.85mv。}建模如下
+\begin{equation}
+    I_D = I_S[exp(\frac{V}{V_t})-1]
+    \label{eq:5.13}
+\end{equation}
+对于这个简单的电路，很清楚
+\begin{equation}
+    I_D = \frac{V}{R} - I_0
+    \label{eq:5.14}
+\end{equation}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.4.png}
+    \caption{二极管电路的图示化表征。}
+    \label{图5.4}
+\end{figure}
+
+方程(\ref{eq:5.13})和(\ref{eq:5.14})在图\ref{图5.4}中用图示的方法给出。精确解是，当然就是曲线A，对应(\ref{eq:5.13})，和B，对应(\ref{eq:5.14})的交点。在每次迭代中，二极管元件会用一个并联的电导$g_{eq}$和独立电流源$I_{eq}$取代，这里
+\begin{equation}
+    g_{eq} = \frac{I_S}{V_t}exp(\frac{V}{V_t})
+    \label{eq:5.15}
+\end{equation}
+\begin{equation}
+    I_{eq} = I_S[exp(\frac{V}{V_t})-1]-g_{eq}V
+    \label{eq:5.16}
+\end{equation}
+这对$g_{eq}$和$I_{eq}$的并联连接的合成I-V方程是(\ref{eq:5.9})给出的线性化支路关系。等效的线性化电路在图\ref{图5.3}b中有说明。
+
+在每次迭代，Newton-Raphson算法用一条正切于非线性曲线的线性等效关系近似二极管非线性。例如，在图\ref{图5.4}中的点$v_0$，该二极管用切线$T_0$近似。$T_0$和负载线的交点是下一个迭代解$v_1$。该二极管非线性随后用切线$T_1$近似，而$T_1$和负载线的交点提供了第二个迭代解$v_2$。切线和负载线的每一个交点都代表一个电路方程的线性化系统的解。
+
+\section{Secant法}
+Secant法和Newton-Raphson方法类似。这两种方法之间的区别是Secant法用差分近似Jacob矩阵中的导数，而Newton-Raphson法直接评估导数。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.5.png}
+    \caption{二极管电路的Secant求解方法。}
+    \label{图5.5}
+\end{figure}
+
+为了说明Secant方法，再次考虑一下那个简单的二极管电路。Secant迭代的图示表征如图\ref{图5.5}所示。Secant法要求前两个迭代解。从初始猜测$v_o$和$v_1$开始，二极管非线性用正切$S_1$近似。这个正切等于将线性电导，$g_{eq}$，和独立电流源，$I_{eq}$，并联，这里$g_{eq}$和$I_{eq}$的值由下式给出
+\begin{equation}
+    g_{eq} = \frac{I_D(v_1)-I_D(v_0)}{v_1-v_0}
+    \label{eq:5.17}
+\end{equation}
+
+\begin{equation}
+    I_{eq} = I_D(v_1)-g_{eq}v_1
+    \label{eq:5.18}
+\end{equation}
+正切$S_1$和负载线的交点提供了下一个迭代解$v_2$。正切$S_2$随后用$v_1$和$v_2$处的二极管电流值构建。
+
+对一个方程系统，Secant方法通过下面的方程说明
+\begin{equation}
+    \hat{J(x_k)}x_{k+1} = -G(x_k)-\hat{J(x_k)}x_k
+    \label{eq:5.19}
+\end{equation}
+这里$\hat{J}$，Jacob估计，由下面的方程确定
+\begin{equation}
+    \hat{J(x_k)}= \begin{pmatrix}
+\frac{g_1(x_k)-g_1(x_{k-1})}{x_1(k)-x_1(k-1)} &\dots  & \frac{g_1(x_k)-g_1(x_{k-1})}{x_n(k)-x_n(k-1)}  \\
+\vdots &  & \vdots  \\
+\frac{g_n(x_k)-g_n(x_{k-1})}{x_1(k)-x_1(k-1)} & \dots  & \frac{g_n(x_k)-g_n(x_{k-1})}{x_n(k)-x_n(k-1)} \\
+\end{pmatrix}
+\label{eq:5.20}
+\end{equation}
+
+方程(\ref{eq:5.19})在形式上与(\ref{eq:5.6})一致。进一步，近似的Jacob(\ref{eq:5.20})在准确解的领域内趋近于Jacob(\ref{eq:5.5})。Secant方法，因此，近似Newton-Raphson方法。Secant方法的收敛率$\frac{1+\sqrt{5}}{2}=1.62$\cite{ref-49}，而Newton-Raphson算法的是2。
+
+Secant方法的优点，相较于Newton-Raphson方法，就是不用评估非线性函数的导数。然而，(\ref{eq:5.17}-\ref{eq:5.18})和(\ref{eq:5.15}-\ref{eq:5.16})的对比表明对于二极管方程的情况，评估导数的计算代价是可以忽略的。实际上，一旦函数G(x)被评估完成，大多数电路方程的Jacob矩阵可以在花销很少额外代价的前提下构建完成。因此，Secant方法的计算优点并不能抵消它收敛慢的缺点。
+
+带着实现更可靠收敛的目的，Secant方法的几种修正已经被提出\cite{ref-57}。然而，这些方法遭受着Newton-Raphson方法遭受的同样的收敛问题；因此，对于电子电路分析，使用Secant方法或者它的其他修正方法几乎得不到什么收益。这解释了为什么，无一例外，目前可行的通用仿真程序都使用Newton-Raphson算法。
+
+\section{收敛性}
+任何非线性求解方法都要求一套准则来决定解的迭代序列什么时候已经收敛。对该准则的逻辑性选择是电路变量向量$x_{k+1}$与前一解$x_k$在一定误差范围内。该准则要求未知向量的每一个部分，$x_k(n)$，满足方程
+\begin{equation}
+    |x_{k+1}(n)-x_k(n)| < \varepsilon_a + \varepsilon_r Min{|x_k(n)|,|x_{k+1}(n)|}
+    \label{eq:5.21}
+\end{equation}
+这里$\varepsilon_a$是绝对误差容限，而$\varepsilon_r$是相对误差容限。如果使用了节点分析构造方法，该准则要求每个节点电压必须与前一次迭代的解满足一定的误差容限。CANCER和SPICE的第一个版本中使用了该误差准则。$\varepsilon_a$为0.001和$\varepsilon_r$为50$\mu$V在大多数情况下产生可以接受的结果。
+
+(\ref{eq:5.21})的收敛准则有时候产生错误的收敛。考虑，例如，图\ref{图5.6}中所示的二极管电路。(\ref{eq:5.13})定义的二极管电流，$I_S = 1 \times 10^{-14}$。这个问题的前11次迭代结果在表\ref{表5.1}中列出。第一列，V2，是在节点2上的迭代解电压。第二列，ID，是给定V2下的二极管电流。最后，IR列是给定V2下的流过电阻的电流。很清楚，KCL要求ID等于IR。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.6.png}
+    \caption{错误收敛的数值案例。}
+    \label{图5.6}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/表5.1.png}
+    \caption{简单二极管案例的11次迭代求解。}
+    \label{表5.1}
+\end{figure}
+
+表\ref{表5.1}中的数据表明节点电压V2在一次迭代就可以收敛到0.1\%的相对误差。然而，一次迭代后得到的解却违反了KCL，比0.1\%的误差容限大的多。实际上，获得的解要满足KCL的相对误差0.1\%需要11次迭代。
+
+该收敛错误来自收敛准则中使用的电路变量的不当选择。收敛测试不应该依赖哪个电路变量被选为方程构建算法中的未知量。相反，该准则应该基于线性化的支路关系与原来非线性支路关系的近似程度。
+
+这一观察促成了下面的收敛准则。考虑图\ref{图5.7}中给出的简单二极管电路的图示表征。支路电压的起始值是随意选择的。支路关系随后在点$(I_0,V_0)$处被线性化，然后电路方程集合被组建和求解以确定下一个迭代支路电压$V_1$。支路电流$\hat{I_1}$是与$V_1$对应的线性化的支路电流，而支路电流$I_1$是与支路电压$V_1$\footnote{原文中为电流$V_2$}对应的真实电流值。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.7.png}
+    \caption{Newton迭代案例。}
+    \label{图5.7}
+\end{figure}
+
+如果$I_1$和$\hat{I_1}$不相等，那么对于支路电压$v_1$，KCL就不满足。一种逻辑上收敛的准则如下
+\begin{equation}
+    |I-\hat{I}| < \varepsilon_a + \varepsilon_r Min{|I|,|\hat{I}|}
+    \label{eq:5.22}
+\end{equation}
+方程(\ref{eq:5.22})被应用到每个非线性支路关系上。很清楚，如果电路既包含电流定义支路，也包含电压定义支路，那么(\ref{eq:5.22})就被应用到每条电流定义支路，而(\ref{eq:5.22})的对偶形式就被应用到每条电压定义支路。
+
+(\ref{eq:5.22})的收敛准则在SPICE2程序中进行了实现。为了提供这两种准则的比较，那十个标准基准的瞬态分析在SPICE1程序和SPICE2上都运行了。这十个电路在本论文的附录\ref{App:1}进行了详细介绍。SPICE1使用(\ref{eq:5.21})，$\varepsilon_r = 0.001$，而$\varepsilon_a = 50\mu$V。SPICE2使用(\ref{eq:5.22})，$\varepsilon_r = 0.001$，而$\varepsilon_a = 10^{-12}$。
+
+这些测试的结果在表\ref{表5.2}中列出。对每个电路，时间点数，Newton迭代次数，和cpu执行时间都被列了出来。没有一个测试使用时间步长控制；相反，两种测试都在固定时间步长下运行了100个时间点。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/表5.2.png}
+    \caption{节点电压收敛准则和支路收敛准则的对比。}
+    \label{表5.2}
+\end{figure}
+
+表\ref{表5.2}中给出数据表明更保守的收敛准则(\ref{eq:5.22})比节点电压准则(\ref{eq:5.21})要求10\%到50\%的更多的Newton迭代。这种增加是要求更精确解的直接结果。因为(\ref{eq:5.22})保证了解精度至少等于指定的误差容限，而(\ref{eq:5.21})什么也没保证，所以(\ref{eq:5.22})的准则更受欢迎。
+
+从表\ref{表5.2}中的数据得到的一个更细微的观察是每次Newton迭代，SPICE2的cpu执行时间比SPICE1长10\%到30\%。这少量的增加是由于在SPICE2中使用了MNA方程构建方法，而SPICE1中使用的是更简单的节点分析法的CANCER修正方案。
+
+\section{修正Newton-Raphson方法}
+Newton-Raphson算法不太适合在典型电子电路的分析中产生的典型的方程系统。使用Newton-Raphson算法遇到的这些问题会在当迭代解不接近准确解时发生。
+
+使用Newton-Raphson算法遇到的第一个问题是数值溢出。这个问题通过图示求解在图\ref{图5.8}中展示。对于初始猜测$v_0$，下一个迭代解$v_1$产生的二极管电流无法被评估。在给定的迭代上，理想二极管支路电压等于10 volts或者更高不是不常见的。与10 volts二极管电压对应的二极管电流要求评估e的400次幂。很明显，这么大的数字在大多数数字计算机上是无法被表示的。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.8.png}
+    \caption{二极管电路的溢出问题。}
+    \label{图5.8}
+\end{figure}
+
+使用Newton-Raphson算法遇到的第二个问题更微妙。该问题在图\ref{图5.9}中给出。该图对应的电路在图\ref{图5.3}中给出，不过结型二极管用一个隧道二级管取代了。切线$T_1$和负载线在解$v_2$处相交。然而，在$v_2$处，隧道二极管特性的斜率已经反转，而切线$T_2$和负载线的交点产生的解靠近$v_1$。这个例子的Newton迭代序列会在解$v_1$和$v_2$之间振荡，从不会接近正确解$v_3$。如果电路只含有一个非线性，那么振荡解就是非单调非线性的直接结果。然而，如果电路中存在不止一个非线性，那么即使电路中所有的非线性都是单调的，也会遇到振荡解。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.9.png}
+    \caption{隧道二极管电路的图形化表征。}
+    \label{图5.9}
+\end{figure}
+
+已经有几种可以避免数值溢出问题和在一定程度上能提升基本的Newton-Raphson算法收敛性能的Newton-Raphson方法的修正措施被提了出来。Kao\cite{ref-50}的MS报告对提到的Newton-Raphson算法的不同修正做了比较。
+
+Newton-Raphson方法的修正可以被分为三类：simple-Limiting算法，error-reduction算法，和source-stepping算法。在这三种修正中，simple-limiting方法最容易实现，收敛的时候需要最少的迭代次数，但也最容易不收敛。Error-reduction算法和source-stepping技术更复杂一些，收敛要求更多的迭代，然而这些算法确定的解更可靠。
+
+\section{Simple-Limiting算法}
+该类的所有算法用一些方式限制了非线性支路电压以防止发生溢出并且希望能辅助收敛。该类中的最简单的方法就是CANCER\cite{ref-2}中使用的方法。对于二极管非线性，从一次迭代到下一次迭代的支路电压偏移被限制为一个2$V_t$的经验因子。该方法的流程图如图\ref{图5.10}所示。2$V_t$和10$V_t$的选择来自经验观察。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.10.png}
+    \caption{CANCER Simple-Limiting方法的流程图。}
+    \label{图5.10}
+\end{figure}
+
+交换基的方法在CIRCUS程序\cite{ref-45}中首次实现，随后在BIAS3程序\cite{ref-59}中实现。迭代求解法逻辑上对于电流定义支路，基于支路电压评估下一个迭代解，而对于电压定义支路，基于电流。这与图\ref{图5.11}中用垂直线A返回函数值对应。然而，如果该函数有反转，也可以沿着图\ref{图5.11}中的水平线B返回非线性函数。对于电流定义支路，图\ref{图5.11}中的线A被称为在电压上迭代，而线B被称为在电流上迭代。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.11.png}
+    \caption{电压上迭代和电流上迭代的对比。}
+    \label{图5.11}
+\end{figure}
+
+交换基的方法，就像应用到二极管非线性上，如果迭代支路电压是负的或者比上一次迭代电压小，那么就用电压上迭代，而如果支路电压是正的且比上一次迭代电压大，那么就用电流上的迭代。
+
+另一种基于交换基的Newton-Raphson算法的修正由Colon提出，Kao\cite{ref-58}实现。对这个算法，如果$V_{k+1}$超过了与经验决定的二极管电流对应的临界结电压，那么就采用电流上的迭代。因此，如果$V_{k+1} > V_{crit}$且$I_{k+1} > 0$，那么就使用电流上的迭代来建立$\hat{V_{k+1}}$。如果$V_{k+1}>V_{crit}$且$I_{k+1}<0$，那么$\hat{V_{k+1}}$就被设置为$V_{crit}$。最后，如果$V_{k+1}<V_{crit}$，那么$\hat{V_{k+1}}$被设置为$V_{k+1}$，也就是说，采用电压上迭代。当$V_{crit}$被设置为曲率最小半径的点时，可以得到经验上最好的结果：
+\begin{equation}
+    V_{crit} =V_tlog(\frac{V_t}{I_S\sqrt{2}})
+    \label{eq:5.23}
+\end{equation}
+
+这些列出的simple-limiting方法并不是所有的已提出的simple-limiting方法。然而，剩余被提出的方法要不是这三种方法的简单变种，要不是Kao\cite{ref-58}发现其可靠性不足或者需要大量的更多的迭代。
+
+\section{Simple-Limiting方法的比较}
+SPICE中实现了全部三种simple-limiting方法。(\ref{eq:5.22})中给出的支路电流收敛准则使用的$\varepsilon_r = 0.001$，而$\varepsilon_a = 10^{-12}$。起始点设置为基极-集电极结关闭(0 volts)，而二极管和基极-发射极结在(\ref{eq:5.23})给出的曲率最小半径点处开始。
+
+这些simple-limiting方法总共用了18个测试电路测试。这些电路在本论文的附录\ref{App:1}中有详细介绍。这些测试的结果在表\ref{表5.3}中给出。每个电路都依次给出了Newton迭代次数，cpu执行时间。表\ref{表5.3}中给出的和Kao引用的结果间不可避免的差别是由于不同的收敛准则，不同的起始条件，和稍微不同的晶体管模型。Kao引用的CANCER方法的糟糕性能来源于Kao编写的CANCER方法的代码实现不同。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/表5.3.png}
+    \caption{simple-limiting方法的结果对比。}
+    \label{表5.3}
+\end{figure}
+
+如表\ref{表5.3}中的数据表示的那样，对大多数情况而言这三种方法之间基本没有差别。五个TTL电路(TTLINV，75TTL，74STTL，74LTTL，和9200TTL)被证明是收敛问题最多的。CANCER方法在74STTL，74LTTL，和9200TTL电路上失效。BIAS 3方法，在另一方面，只在9200TTL上失效。最后，COLON方法成功求解了所有五种TTL电路。
+
+这些测试表明对被测试的电路来说COLON方法是最可靠的。另外，COLON方法除了MECLIII电路，对测试的每一个电路都要求最少数量的迭代。BIAS 3方法在MECLIII电路上比COLON方法少一次迭代。
+
+这些方法只用双极型晶体管电路进行了测试。CANCER和COLON方法也都可以被拓展到limit FET非线性中。本质上，FET 非线性没有双极型非线性那么严重，而且不容易遇到双极型电路仿真中的数值溢出。SPICE仿真FET电路非常有限的经验表明limiting算法不是必要的。不过，为了避免可能出现的FET收敛问题，在两个SPICE程序中都实现了一个简单的CANCER型limit。
+
+\section{Error-Reduction算法}
+Error-Reduction算法通过在每次迭代中限制非线性参数来尝试克服Newton-Raphson算法遇到的收敛困难，这种方法可以一直减小测量的误差。该法通过下面的方程选择第$k+1$次迭代解，$x_{k+1}$，实现
+\begin{equation}
+    \hat{x}_{k+1} = x_k + \gamma_k \delta x_k
+    \label{eq:5.24}
+\end{equation}
+这里$\gamma_k$是步长尺寸。如果$\gamma_k$是1，那么(\ref{eq:5.24})等于(\ref{eq:5.2})。第$k$次迭代的误差由下式给出
+\begin{equation}
+    \varepsilon_k = G(x_k)^TG(x_k)
+    \label{eq:5.25}
+\end{equation}
+该算法的目标，之后，是选择一个步长尺寸$\gamma_k$使得$\varepsilon_k$最小\cite{ref-32}。
+
+如果这个算法是成功的，那么每次迭代解会靠近准确解。如果该法没有收敛，那么最后一次解至少也是和之前任何一次迭代一样是准确的。当然，对于simple-limiting算法就不存在这样的保证了。
+
+同样的步长尺寸，$\gamma_k$，被应用到电路中的每个非线性参数上。该法与CANCER方法或者COLON方法有明显不同，这两种方法用不同的等效步长尺寸限制每一条支路电压或者电流。
+
+步长尺寸的选择用下面的方式决定。方程(\ref{eq:5.1})在$\hat{x}_{k+1}$处用Taylor级数展开得到
+\begin{equation}
+    G(\hat{x}_{k+1}) = G(x_k + \gamma_k \delta x_k) \overline{=} G(x_k) + \gamma_k J(x_k) \delta x_k
+    \label{eq:5.26}
+\end{equation}
+如果$\gamma_k$是1，那么(\ref{eq:5.26})可以约减为(\ref{eq:5.3})。结合(\ref{eq:5.2})和(\ref{eq:5.26})得到方程
+\begin{equation}
+    G(\hat{x}_{k+1}) = (1-\gamma_k)G(x_k)
+    \label{eq:5.27}
+\end{equation}
+最后，(\ref{eq:5.25})和(\ref{eq:5.27})结合起来产生
+\begin{equation}
+    \frac{\varepsilon_k(\gamma_k)}{\varepsilon_k(0)} = 1 - 2\gamma_k + \gamma^2_k = (1-\gamma_k)^2
+    \label{eq:5.28}
+\end{equation}
+(\ref{eq:5.28})给出的误差的理想抛物线性质以与电路中非线性的严重程度成比例地被扭曲。相对误差的四种图示，作为步长尺寸的函数，在图\ref{图5.12}中给出。曲线D是理想的抛物线误差特性。在曲线A和B对应的误差特性中，最小误差发生在步长尺寸小于1的地方。曲线C的误差特性，另一方面，对应着最小误差发生在步长尺寸大于1的地方。在所有的情况中，曲线斜率的初始值($r_k$=0)是-2\cite{ref-32}。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.12.png}
+    \caption{Error Reduction方法的误差 VS. 步长图示。}
+    \label{图5.12}
+\end{figure}
+
+确定$\gamma_k$的策略是基于误差$\varepsilon_k$的抛物线本性。这里给出的方法基本上遵循ECAP 2\cite{ref-32}中使用的算法。在第k次迭代中，评估0步长尺寸的误差，$\varepsilon_k(0)$，和1步长尺寸的误差，$\varepsilon_k(1)$。试验的步长尺寸，$\hat{\gamma}_k$，随后\footnote{原文中为“ten”，这里根据“then”翻译}通过对这两种误差值和-2的初始斜率拟合确定。该试验步长尺寸的误差随后被评估。
+
+如果$\varepsilon(\hat{\gamma}_k)$同时小于$\varepsilon(1)$和$\varepsilon(0)$，那么$\hat{\gamma}_k$被用作步长尺寸。这种情况对应着图\ref{图5.12}中的曲线B。如果$\varepsilon(1)$同时小于$\varepsilon(\hat{\gamma}_k)$和$\varepsilon(0)$，那么就使用1步长尺寸。这种情况对应着图\ref{图5.12}中的曲线C。最后，如果$\varepsilon(0)$同时小于$\varepsilon(\hat{\gamma}_k)$和$\varepsilon(1)$，也就是图\ref{图5.12}中的曲线A对应的情况，那么$\hat{\gamma}_k$会一直被减半直到$\varepsilon(\hat{\gamma}_k)$小于$\varepsilon(0)$。为了阻止无限循环，如果$\hat{\gamma}_k$小于$10^{-6}$，分析会被中止\footnote{原文为“the analysis is method if ...”，这里把“method”替换为“terminated”翻译}。
+
+每次评估误差$\varepsilon_k$都需要一组电路方程。只要$\varepsilon(0)$比$\varepsilon(\hat{\gamma}_k)$或者$\varepsilon(1)$大，每次误差减少步骤就会要求两次方程构建步骤和一个或者两个方程解，这取决于$\varepsilon(\hat{\gamma}_k)$是大于还是小于$\varepsilon(1)$。电路方程的每次构建被计为一次Newton迭代。
+
+该error-reduction算法被应用到用来比较simple-limiting方法\footnote{原文为“metals”，这里按“method”翻译}的相同的电路上。使用相同的误差容限和初始条件。关于这18个电路的最后的误差，Newton迭代的次数，和cpu执行时间在表\ref{表5.4}中给出。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/表5.4.png}
+    \caption{Error-Reduction算法的结果。}
+    \label{表5.4}
+\end{figure}
+
+error-reduction算法在UA 733电路，74 STTL电路，74 LTTL电路，和9200 TTL电路上没有找到可接受解。对这四个电路，对该算法随后进行的调整也没有产生可接受的误差水平。而且，求解这四个剩余电路需要的Newton迭代次数比simple-limiting COLON方法多出40\%到1230\%。error-reduction方法，因此，无法得到“故障保护”的收敛性质，并且在确定DC工作点时需要的Newton迭代次数会大量增加。
+
+\section{Source-Stepping算法}
+这类非线性求解方法是由Davidenko\cite{ref-60}最初提出的。在本质上，source-stepping方法等价于用DC转移曲线确定DC工作点。独立源值向量，E，由下面的方程决定
+\begin{equation}
+    E = \alpha S
+    \label{eq:5.29}
+\end{equation}
+这里S是电源值的真实值，而$\alpha$是0和1之间的一个标量。标量$\alpha$随后从0，这里解明显是0，逐渐被增加到1。在每一步，$\alpha$被增加的量由无修正的Newton-Raphson算法取得收敛决定。
+
+尽管该方法表现出故障安全，但它并不能总收敛到解。再次考虑一下图\ref{图5.13}给出的那个简单的用“负载线”解的隧道二极管电路。这图中的负载线A对应着$\alpha$等于0的解，负载线B对应着$\alpha$等于0.9，而负载线C对应着$\alpha$等于1。因为只有独立源的值受$\alpha$影响，所以A，B，和C的斜率相等。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/图5.13.png}
+    \caption{使用Source-Stepping方法的不收敛案例。}
+    \label{图5.13}
+\end{figure}
+
+source-stepping算法从$\alpha=0$到$\alpha=0.9$平滑前进。然而，在这个例子中，如果$\alpha$最小都大于0.9，那么解会突然从点a跳到点b。不论\footnote{原文中为“Now matter...”，用“No matter”翻译}$\alpha$上的变动多么小，simple-limiting方法遇到的相同的振荡行为也会在使用source-stepping算法时发生。
+
+Kao\cite{ref-58}已经证明Broyden\cite{ref-61}的特殊的source-stepping方法要求的迭代次数是ECAP 2方法\cite{ref-32}的两倍，COLON的simple-limiting方法的四倍。
+
+ASTAP\cite{ref-29}中使用的求解方法是source-stepping算法的一种有趣的修正。在本论文的第\ref{chap:3}章已经说明，ASTAP中使用的修正表格构建方法在DC分析中可产生数值病态的方程。出于这个原因，在本章中提出的方法不能在ASTAP中直接被使用。
+
+相反，DC解真正可以通过瞬态分析得到。这是通过在DC分析中把“伪-电抗”引入电路实现的。伪电抗被插入与每个独立电压源和每个非线性电压定义支路串联，而伪电容被插入与每个独立电流源和每个非线性电流定义支路并联。这些伪-电抗初值的选择要使得初始瞬态解为0。
+
+瞬态分析随后会在该伪-电路上被执行。从0解到终解之间的转换与该分析没有关系。因此，只要积分算法稳定，截断误差就可以被忽略，也就是说，只要解收敛到正确的均衡解。出于这个原因，选择的时间步长不是由考量的精度决定；相反，尽可能选择大的时间步长，只与未修正的Newton-Raphson算法的收敛一致。
+
+这个方法在SPICE中用下面的方式实现。一个1 henry的电感被插入与每个独立电压源串联，而一个1 farad电容被插入与每个独立电流源并联。对于非线性支路，BJT模型的内建电容被用作伪-电容。选择的电源电抗的初始条件要产生0初始解。
+
+本论文附录\ref{App:1}中描述的10个标准的基准电路随后被用来测试该方法。瞬态分析使用Backward Euler积分方法和下面的时间步长算法。如果在一个时间点Newton迭代的次数超过10，那么时间步长会被减小8倍。如果迭代次数小于5，那么时间步长会被加倍。当独立电压源电感电压小于$10^{-9}$，独立电流源电容电流小于$10^{-12}$时，分析停止。
+
+这些测试的结果在表\ref{表5.5}中给出。测试同时用未修正的Newton-Raphson算法和COLON的simple-limiting方法进行。两种情况的第一列都列出了获得收敛需要的时间点数；第二列给出了要求的Newton迭代次数；第三列是分析的cpu执行时间。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/表5.5.png}
+    \caption{ASTAP方法的DC分析结果\footnote{原文中为表5.4}。}
+    \label{表5.5}
+\end{figure}
+
+从这个数据中暗示的第一个观察是，甚至当使用准-DC方法时，simple-limiting方法在很多情况下带来了可观的更少的迭代。UA 709电路，比如，如果不采用limiting，需要超过1000次迭代，但是使用COLON limit只需要612次迭代。当使用COLON limit时，剩余的电路需要少于17\%的迭代。只有在MELL111和SBOGATE电路上，simple-limit才没有在迭代次数上产生明显的减少。
+
+第二个，也是更重要的，结论是该准-DC分析比simple-limit方法需要的迭代次数多的多。差别从因子9.6，对于TTLINV电路，到因子51，对于UA 709电路。这两种方法Newton迭代的平均次数有19倍的差别。计算代价上这么显著的增加很明显不能为该方法包含的任何好处辩护。
+
+\section{Multiple-Point分析}
+非线性求解算法同时在DC工作点分析和电路的DC转移曲线求解或电路的瞬态响应求解中都在使用。在后面的两种分析中，需要计算很多扫描点，虽然每个点上的迭代次数相对较小。本节提出的预测和绕过方法在每个扫描点上都能减少计算量。
+
+在multiple-point分析中，最后一个点处的解通常是解的好估计。在大多数情况下，通过利用之前的点来预测该解，可以改善这个估计。在瞬态分析中，例如，最简单的预测是一阶方程
+\begin{equation}
+    \hat{x}_{n+1} = x_n + \frac{h_{n+1}}{h_n}(x_n-x_{n-1})
+    \label{eq:5.30}
+\end{equation}
+
+没有预测，向量$x_n$被用来启动求解$x_{n+1}$。各种预测方法，在另一方面，使用$x_{n+1}$作为起始猜测。方程(\ref{eq:5.30})是一种一阶预测。时间点$x_n$，$x_{n-1}$，和$x_{n-2}$可以被用来提供二阶预测。相似地，k-1个后时间点产生k阶预测。
+
+五个瞬态测试电路和十个标准基准电路的瞬态分析被用来测试预测算法。在这一系列的测试中，使用了迭代时间步长控制。特别地，如果在一个给定的时间点迭代次数超过10，时间步长会被减小8倍，而如果迭代次数小于5，时间步长会被加倍。时间步长从来不会被容许超过用户定义的打印间隔。预测算法的实现，当然应该对要计算的时间点数的影响要能忽略不计。而且，预测算法与使用的时间步长控制类型无关。
+
+预测算法的测试结果在表\ref{表5.5}中给出。该表中的第一列列出了不带预测的瞬态分析的时间点数，Newton迭代次数，和cpu执行时间。第二列给出了使用预测的相同的三项品质因数。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Chapter5/表5.6.png}
+    \caption{预测和绕过算法的结果\footnote{原文中为表5.5}。}
+    \label{表5.6}
+\end{figure}
+
+从这个数据可以明显得到(\ref{eq:5.30})中给出的预测算法在除了RC和SCHMITT电路的所有电路上都能减少Newton迭代的次数。迭代次数的减少量从ASTABLE电路时的1\%到DIFFPAIR电路时的20\%。比(\ref{eq:5.30})阶数还高的预测方法的结果与表\ref{表5.6}中的引用结果比较几乎没有提高。
+
+multiple-point分析中的第二个计算提高是绕过算法。使用该算法，只有当支路关系的参数中的差别显著改变，非线性支路关系和它们的导数才会被评估。否则，就使用最后一次迭代中的值\cite{ref-62}。
+
+图\ref{图5.7}所示的二极管特性论证了该算法。第一次迭代后，$V_1$和$\hat{I}_1$在不评估二极管方程(\ref{eq:5.13})的情况下就会被计算。为了确定第二次迭代的解，二极管方程和它的导数必须在点a（电压上迭代）或者点b（电流上迭代）上被评估。然而，如果$|\hat{I}_1 - I_0|$和$|V_1 - V_0|$比较小，那么等效电导$g_{eq}$和独立电流源值$I_{eq}$在第一次迭代和第二次迭代之间的差别就不会显著不同。在这种情况下，第一次（或者k次）迭代使用的$g_{eq}$和$I_{eq}$值也可以被用在第二次（或者k+1次）迭代上。
+
+绕过算法按下面的方式进行。在第k次迭代，$\hat{I}_k$和$V_k$会被评估。如果$g_{eq} > 1$并且
+\begin{equation}
+    |\hat{I}_k - I_{k-1}| < \varepsilon_a Max{|\hat{I}_k|,|I_{k-1}|}
+    \label{eq:5.31}
+\end{equation}
+或者如果$g_{eq} < 1$并且
+\begin{equation}
+    |V_k - V_{k-1}| < \varepsilon_a Max{|V_k|,|V_{k-1}|} + \varepsilon_r
+    \label{eq:5.32}
+\end{equation}
+那么第k次迭代的$g_{eq}$和$I_{eq}$的值也可以被用在第$k+1$次迭代上。
+
+绕过算法的测试结果在表\ref{表5.6}中也给出了。第三列包含了这十五个测试电路分析的时间点数，Newton迭代次数，和cpu执行时间。对这些测试，绕过算法在cpu执行时间上产生的提升很小。cpu时间上最好的提升是ASTABLE分析的8.9\%的减少；然而，RC，SCHMITT，和RTLINV分析的cpu时间一点也没有减少。平均来看，cpu执行时间只能被减少4\%。
+
+\section{总结}
+Newton-Raphson算法是大多数电路仿真程序中使用的非线性求解方法。Secant方法在电路仿真中也被提出使用，主要因为在Secant方法中不需要评估非线性方程的导数。然而，Secant方法较慢的收敛速度无法通过这点微小的计算优势被补偿。
+
+无论是Newton-Raphson方法还是Secant方法都不可以直接被用来对大多数的非线性电路方程求解。困难来自模拟结二极管和双极型结晶体管的物理方程的指数本质。如果求解算法不能被调整以适应电路仿真的需求，那么这些指数非线性经常会导致数值溢出。
+
+本章的第一个贡献是开发了一种有意义的收敛准则。大多数节点分析程序，包括SPICE1，使用的准则是每个节点电压必须在迭代过程中止之前达到一些容限。证明了该方法错误收敛的发生，并提出了一种规避这种错误收敛的方法。基本上，新收敛准则要求，对每条非线性支路，该线性化的支路关系必须与非线性化的支路关系满足给定的容限。该收敛准则，因此，是非线性求解方法的一部分，并且不依赖构建电路方程时使用的哪个电路变量。这一新的收敛准则在SPICE2程序中进行了实现。
+
+接下来，给出了simple-limiting方法。这三种比较的算法是CANCER方法，BIAS3方法，和COLON方法。几个电路上的测试表示对大多数电路来说这些方法之间几乎没有差别。然而，COLON方法被证明是这三种中最可靠的；而且，该方法收敛要求最少的迭代次数。出于这个原因，COLON simple-limit方法在SPICE2程序中实现了。然而，大量使用了CANCER方法的SPICE1的经验已经证明CANCER方法也是一种非常有效的limiting技术。
+
+error-reduction和source-stepping这些更复杂的方法随后被详细介绍了。对测试的电路，没有发现一种方法有COLON方法那样的可靠性。而且，两种方法收敛都要求大量更多的Newton迭代。因此，没有一种方法对主要的DC工作点算法是有吸引力的。然而，当COLON的simple-limiting方法失效时，SPICE的DC转移曲线能力经常被用作source-stepping方法的备份。
+
+最后，给出了求解方法的额外改进，可以减少multiple-point分析的计算代价。瞬态分析中一阶预测算法的使用被发现在迭代次数上可以带来5\%到10\%的减少。也提出了避免重新计算迭代之间的非线性方程的绕过算法。这一绕过算法在cpu执行时间上带来额外4\%的提高。一阶预测和绕过算法都在SPICE2程序中被保留。然而，这两种算法提供的提高非常有限，所以这些方法也可以被省略。

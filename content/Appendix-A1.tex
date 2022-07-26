@@ -1,0 +1,404 @@
+\chapter{测试基准电路}
+\label{App:1}
+电路仿真程序的效果最终要由实际电路的程序使用情况决定。不同工程师组也许牵涉到完全不同类型的电路设计，所以因此也许对仿真程序中的能力有着完全不同的要求。仿真程序或者仿真程序中不同算法的比较，势必有着部分主观的成分，因为那些测试电路被选中来反映典型的应用。
+
+本论文通篇使用的电路在本附录中进行了详细描述。这些电路中的大部分是典型模拟和数字集成电路的代表。这些电路中的一些被选中来强调特定的仿真问题，比如DC分析中的收敛或瞬态分析中的截断误差。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/表A1.1.png}
+    \caption{十个标准的基准电路。}
+    \label{表A1.1}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.1.png}
+    \caption{差分对电路(DIFFPAIR)。}
+    \label{图A1.1}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.2.png}
+    \caption{RCA 3040宽带放大器(RCA3040)。}
+    \label{图A1.2}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.3.png}
+    \caption{$\mu$A 709运算放大器(UA709)。}
+    \label{图A1.3}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.4.png}
+    \caption{$\mu$A 741运算放大器(UA741)。}
+    \label{图A1.4}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.5a.png}
+    \caption{$\mu$A 727放大器的参考电压部分(UA727)。}
+    \label{图A1.5a}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.5b.png}
+    \caption{$\mu$A 727电路的放大器部分(UA727)。}
+    \label{图A1.5b}
+\end{figure}
+
+标准基准测试电路小组在表\ref{表A1.1}中列出。这十个电路包含五个线性集成电路(LIC的)，和五个数字集成电路(DIC的)。LIC的包含的差分对如图\ref{图A1.1}所示，RCA 3040宽带放大器如图\ref{图A1.2}所示，$\mu$A 709运算放大器如图\ref{图A1.3}所示，$\mu$A 741运算放大器如图\ref{图A1.4}所示，而$\mu$A 727运算放大器如图\ref{图A1.5a}-\ref{图A1.5b}所示。这五个LIC的复杂度从差分对的14个节点和32条支路\footnote{SPICE2中实现的BJT模型如果不包括欧姆电阻的话包含五条支路。如果包括$r_b$，模型包含六条支路，而如果包括$r_c$，模型包含七条支路。SPICE2二极管模型如果忽略欧姆电阻的话含有两条支路，如果包括$r_s$，含有三条支路。}到$\mu$A 727放大器的58个节点和163条支路。这五个电路使用的BJT模型参数在表\ref{表A1.2}中给出。这些参数值是LIC器件的典型值。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/表A1.2.png}
+    \caption{五个LIC的BJT模型参数。}
+    \label{表A1.2}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.6.png}
+    \caption{级联的RTL反相器(RTLINV)。}
+    \label{图A1.6}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.7.png}
+    \caption{TTL反相器(TTLINV)。}
+    \label{图A1.7}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.8.png}
+    \caption{ECL逻辑门(ECLGATE)。}
+    \label{图A1.8}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.9.png}
+    \caption{MECL III 反相器(MECLIII)。}
+    \label{图A1.9}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.10.png}
+    \caption{Schottky-TTL反相器(SBDGATE)。}
+    \label{图A1.10}
+\end{figure}
+
+五个DIC的包含两个级联RTL反相器如图\ref{图A1.6}中所示，TTL反相器如图\ref{图A1.7}中给出，ECL逻辑门如图\ref{图A1.8}中所示，MECL III ECL门如图\ref{图A1.9}中所示，和Schottky-TTL反相器如图\ref{图A1.10}中所示。这五个电路使用的BJT和二极管模型在表\ref{表A1.3}中所示。这些参数值是标准DIC器件的典型值。尽管集电极欧姆电阻，$r_c$，在LIC的中被忽略了，但它在DIC的中被包含了，因为$r_c$的效果对饱和数字电路更重要。这五个DIC的的复杂度从RTL反相器的11个节点和20条支路到Schottky-TTL反相器的54个节点和105条支路。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/表A1.3.png}
+    \caption{五个DIC的BJT和二极管模型参数。}
+    \label{表A1.3}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/表A1.4.png}
+    \caption{八个DC收敛测试电路。}
+    \label{表A1.4}
+\end{figure}
+
+非线性求解算法的收敛可靠性在仿真程序中格外重要。然而，非线性方法的收敛性质只由经验测试决定。本论文第\ref{chap:5}章中描述的收敛测试中包含的八个额外的电路提供了更多类型的测试电路。这些电路在表\ref{表A1.4}中给出。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.11.png}
+    \caption{恒流源(CCSOR)。}
+    \label{图A1.11}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.12.png}
+    \caption{振荡器电路(OSC)。}
+    \label{图A1.12}
+\end{figure}
+
+表\ref{表A1.4}中给出的前四个电路来自Kao\cite{ref-58}的Master的报道。这些电路包含的恒流源如图\ref{图A1.11}所示，振荡器电路如图\ref{图A1.12}所示，$\mu$A 733视频放大器如图\ref{图A1.13}所示，和互补寄存器器如图\ref{图A1.14}所示。这四个电路的BJT模型参数如表\ref{表A1.5}所示。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.13.png}
+    \caption{$\mu$A733视频放大器(UA733)。}
+    \label{图A1.13}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.14.png}
+    \caption{互补寄存器电路(CFFLOP)。}
+    \label{图A1.14}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/表A1.5.png}
+    \caption{来自Kao的四个电路的BJT模型参数。}
+    \label{表A1.5}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/表A1.6.png}
+    \caption{四个TTL电路的模型参数。}
+    \label{表A1.6}
+\end{figure}
+
+在表\ref{表A1.4}中列出的剩余四种电路是D. A. Hodges\cite{ref-76}提供的TTL电路。在用SPICE对这些电路进行仿真时遇到了大量的收敛问题。这些电路包含了图\ref{图A1.15}中给出的74TTL反相器，图\ref{图A1.16}中展示的74STTL电路，图\ref{图A1.17}中给出的74LTTL电路，以及图\ref{图A1.18}中展示的9200TTL电路。尽管输入电压源（VIN）典型地不是高（2.5-5.0V）就是低（0-0.5V），但是当源VIN被设置为这些图中给出的那些值时，还是会遇到收敛问题。这四个电路的BJT和二极管模型参数在表\ref{表A1.6}中给出。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.15.png}
+    \caption{74TTL反相器(74TTL)。}
+    \label{图A1.15}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.16.png}
+    \caption{74STTL反相器(74STTL)。}
+    \label{图A1.16}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.17.png}
+    \caption{74LTTL反相器(74LTTL)。}
+    \label{图A1.17}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.18.png}
+    \caption{9200TTL反相器(9200TTL)。}
+    \label{图A1.18}
+\end{figure}
+
+为了测试在瞬态分析中使用的数值积分算法，还包括了五个额外的电路。因为这些电路中的每一个含有的时间常数都被广泛地分开，所以为了准确地确定电路响应，使用的时间步长必须在几个量级之间变化。这些电路被设计得足够小以尽可能地最小化重复的瞬态分析的代价。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.19.png}
+    \caption{切分时间常数的RC电路 (RC)。}
+    \label{图A1.19}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.20.png}
+    \caption{扼流电路 (CHOKE)。}
+    \label{图A1.20}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.21.png}
+    \caption{ECL反相器 (ECL)。}
+    \label{图A1.21}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.22.png}
+    \caption{施密特触发电路 (SCHMITT)。}
+    \label{图A1.22}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.23.png}
+    \caption{非稳态多谐振荡器 (ASTABLE)。}
+    \label{图A1.23}
+\end{figure}
+
+这组电路包含了在图\ref{图A1.19}中展示的RC电路，在图\ref{图A1.20}中展示的扼流电路，在图\ref{图A1.21}中给出的ECL电路，在图\ref{图A1.22}中展示的施密特触发电路，以及在图\ref{图A1.23}中展示的非稳态多谐振荡器。这五个电路中使用的BJT和二极管模型参数在表\ref{表A1.7}中展示。
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/表A1.7.png}
+    \caption{瞬态测试电路的器件模型参数。}
+    \label{表A1.7}
+\end{figure}
+
+该附录剩余部分包含了该附录中描述的电路的SPICE输入卡的列表。
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck1.png}
+    \caption{}
+    \label{图A1.deck1}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck2.png}
+    \caption{}
+    \label{图A1.deck2}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck3.png}
+    \caption{}
+    \label{图A1.deck3}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck4.png}
+    \caption{}
+    \label{图A1.deck4}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck5a.png}
+    \caption{}
+    \label{图A1.deck5a}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck5b.png}
+    \caption{}
+    \label{图A1.deck5b}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck6.png}
+    \caption{}
+    \label{图A1.deck6}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck7.png}
+    \caption{}
+    \label{图A1.deck7}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck8.png}
+    \caption{}
+    \label{图A1.deck8}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck9.png}
+    \caption{}
+    \label{图A1.deck9}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck10.png}
+    \caption{}
+    \label{图A1.deck10}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck11.png}
+    \caption{}
+    \label{图A1.deck11}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck12.png}
+    \caption{}
+    \label{图A1.deck12}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck13.png}
+    \caption{}
+    \label{图A1.deck13}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck14.png}
+    \caption{}
+    \label{图A1.deck14}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck15.png}
+    \caption{}
+    \label{图A1.deck15}
+\end{figure}
+
+\begin{figure}[htbp]
+\small
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/Appendix-A1/图A1.deck16.png}
+    \caption{}
+    \label{图A1.deck16}
+\end{figure}
